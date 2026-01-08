@@ -7,6 +7,7 @@ use clap::{Parser, Subcommand};
 use colored::*;
 use std::time::Duration;
 use tokio::time;
+use std::io::{self, Write};
 
 #[derive(Parser)]
 #[command(name = "whale-watcher")]
@@ -230,6 +231,9 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
 }
 
 fn print_whale_alert(platform: &str, trade: &polymarket::Trade, value: f64) {
+    // Play alert sound immediately
+    play_alert_sound();
+    
     println!();
     println!(
         "{}",
@@ -267,6 +271,9 @@ fn print_whale_alert(platform: &str, trade: &polymarket::Trade, value: f64) {
 }
 
 fn print_kalshi_alert(trade: &kalshi::Trade, value: f64) {
+    // Play alert sound immediately
+    play_alert_sound();
+    
     println!();
     println!(
         "{}",
@@ -296,6 +303,12 @@ fn print_kalshi_alert(trade: &kalshi::Trade, value: f64) {
     
     println!("{}", "=".repeat(70).dimmed());
     println!();
+}
+
+fn play_alert_sound() {
+    // Play system beep (cross-platform)
+    print!("\x07");
+    io::stdout().flush().ok();
 }
 
 fn detect_anomalies(price: f64, size: f64, value: f64) {
