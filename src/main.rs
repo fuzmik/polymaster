@@ -33,6 +33,8 @@ enum Commands {
     Setup,
     /// Show current configuration
     Status,
+    /// Test alert sound
+    TestSound,
 }
 
 #[tokio::main]
@@ -51,6 +53,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             interval,
         } => {
             watch_whales(threshold, interval).await?;
+        }
+        Commands::TestSound => {
+            test_sound().await?;
         }
     }
 
@@ -108,6 +113,31 @@ async fn setup_config() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!("Run {} to start watching for whale transactions.", "whale-watcher watch".bright_cyan());
 
+    Ok(())
+}
+
+async fn test_sound() -> Result<(), Box<dyn std::error::Error>> {
+    println!("{}", "TESTING ALERT SOUND".bright_cyan().bold());
+    println!();
+    println!("Playing single alert...");
+    play_alert_sound();
+    
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    
+    println!("Playing triple alert (for repeat actors)...");
+    play_alert_sound();
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    play_alert_sound();
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    play_alert_sound();
+    
+    println!();
+    println!("{}", "Sound test complete.".bright_green());
+    println!("If you didn't hear anything, check:");
+    println!("  1. System volume is not muted");
+    println!("  2. Sound file exists: /System/Library/Sounds/Ping.aiff");
+    println!("  3. Try: afplay /System/Library/Sounds/Ping.aiff");
+    
     Ok(())
 }
 
@@ -377,7 +407,40 @@ fn print_kalshi_alert(trade: &kalshi::Trade, value: f64, _wallet_activity: Optio
 }
 
 fn play_alert_sound() {
-    // Play system beep (cross-platform)
+    // macOS: Use afplay with system sound
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("afplay")
+            .arg("/System/Library/Sounds/Ping.aiff")
+            .spawn()
+            .ok();
+    }
+    
+    // Linux: Use paplay or aplay
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("paplay")
+            .arg("/usr/share/sounds/freedesktop/stereo/message.oga")
+            .spawn()
+            .or_else(|_| {
+                std::process::Command::new("aplay")
+                    .arg("/usr/share/sounds/alsa/Front_Center.wav")
+                    .spawn()
+            })
+            .ok();
+    }
+    
+    // Windows: Use powershell beep
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("powershell")
+            .arg("-c")
+            .arg("[console]::beep(800,300)")
+            .spawn()
+            .ok();
+    }
+    
+    // Fallback: terminal bell
     print!("\x07");
     io::stdout().flush().ok();
 }
