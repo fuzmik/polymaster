@@ -855,14 +855,14 @@ async fn send_webhook_alert(webhook_url: &str, alert: WebhookAlert<'_>) {
     }
 
     // Send POST request to webhook
-    let client = reqwest::Client::new();
-    match client
-        .post(webhook_url)
-        .json(&payload)
+    // For self-hosted instances with self-signed certs, accept invalid certs
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
         .timeout(std::time::Duration::from_secs(5))
-        .send()
-        .await
-    {
+        .build()
+        .unwrap();
+
+    match client.post(webhook_url).json(&payload).send().await {
         Ok(response) => {
             if !response.status().is_success() {
                 eprintln!(
