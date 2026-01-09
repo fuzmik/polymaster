@@ -204,6 +204,8 @@ pub fn parse_ticker_details(ticker: &str) -> String {
         || ticker.contains("NFLGAME")
         || ticker.contains("NBAGAME")
         || ticker.contains("MLBGAME")
+        || ticker.contains("SOCCERGAME")
+        || ticker.contains("FOOTBALLGAME")
     {
         // Sports game format
         let parts: Vec<&str> = ticker.split('-').collect();
@@ -224,15 +226,22 @@ pub fn parse_ticker_details(ticker: &str) -> String {
                         "NFL"
                     } else if ticker.contains("NBA") {
                         "NBA"
-                    } else {
+                    } else if ticker.contains("MLB") {
                         "MLB"
+                    } else if ticker.contains("SOCCER") || ticker.contains("FOOTBALL") {
+                        "Soccer"
+                    } else {
+                        "Sports"
                     };
 
                     return format!(
-                        "Betting YES = {} wins | {} @ {} ({})",
+                        "Betting YES = {} wins vs {} ({})",
                         outcome.to_uppercase(),
-                        away.to_uppercase(),
-                        home.to_uppercase(),
+                        if outcome.to_uppercase() == away.to_uppercase() {
+                            home.to_uppercase()
+                        } else {
+                            away.to_uppercase()
+                        },
                         sport
                     );
                 }
