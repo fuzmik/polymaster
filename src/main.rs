@@ -52,8 +52,11 @@ enum Commands {
         #[arg(short, long)]
         json: bool,
     },
+<<<<<<< HEAD
     /// Test ntfy notification - NEW
     TestNtfy,
+=======
+>>>>>>> 30eb0ef (New history command - View past whale alerts    Automatic logging - Every alert is saved to ~/.config/wwatcher/alert_history.jsonl    JSON Lines format - Easy to process with other tools    Platform filtering - View only Polymarket or Kalshi alerts    JSON output option - For scripting and automation    Automatic cleanup - Removes alerts older than 30 days    All alert data saved - Includes wallet activity, anomaly info, timestamps)
 }
 
 #[tokio::main]
@@ -82,9 +85,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::History { limit, platform, json } => {
             show_alert_history(limit, &platform, json).await?;
         }
+<<<<<<< HEAD
         Commands::TestNtfy => {
             test_ntfy().await?;
         }
+=======
+>>>>>>> 30eb0ef (New history command - View past whale alerts    Automatic logging - Every alert is saved to ~/.config/wwatcher/alert_history.jsonl    JSON Lines format - Easy to process with other tools    Platform filtering - View only Polymarket or Kalshi alerts    JSON output option - For scripting and automation    Automatic cleanup - Removes alerts older than 30 days    All alert data saved - Includes wallet activity, anomaly info, timestamps)
     }
 
     Ok(())
@@ -491,7 +497,11 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
                                 eprintln!("{} Failed to log alert: {}", "[WARNING]".yellow(), e);
                             }
 
+<<<<<<< HEAD
                             // Send webhook/ntfy notification
+=======
+                            // Send webhook notification
+>>>>>>> 30eb0ef (New history command - View past whale alerts    Automatic logging - Every alert is saved to ~/.config/wwatcher/alert_history.jsonl    JSON Lines format - Easy to process with other tools    Platform filtering - View only Polymarket or Kalshi alerts    JSON output option - For scripting and automation    Automatic cleanup - Removes alerts older than 30 days    All alert data saved - Includes wallet activity, anomaly info, timestamps)
                             if let Some(ref cfg) = config {
                                 if let Some(ref webhook_url) = cfg.webhook_url {
                                     send_webhook_alert(
@@ -561,7 +571,11 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
                                 eprintln!("{} Failed to log Kalshi alert: {}", "[WARNING]".yellow(), e);
                             }
 
+<<<<<<< HEAD
                             // Send webhook/ntfy notification
+=======
+                            // Send webhook notification
+>>>>>>> 30eb0ef (New history command - View past whale alerts    Automatic logging - Every alert is saved to ~/.config/wwatcher/alert_history.jsonl    JSON Lines format - Easy to process with other tools    Platform filtering - View only Polymarket or Kalshi alerts    JSON output option - For scripting and automation    Automatic cleanup - Removes alerts older than 30 days    All alert data saved - Includes wallet activity, anomaly info, timestamps)
                             if let Some(ref cfg) = config {
                                 if let Some(ref webhook_url) = cfg.webhook_url {
                                     send_webhook_alert(
@@ -825,7 +839,11 @@ fn print_kalshi_alert(
 }
 
 // ============================================================================
+<<<<<<< HEAD
 // ALERT HISTORY FUNCTIONS
+=======
+// NEW ALERT HISTORY FUNCTIONS
+>>>>>>> 30eb0ef (New history command - View past whale alerts    Automatic logging - Every alert is saved to ~/.config/wwatcher/alert_history.jsonl    JSON Lines format - Easy to process with other tools    Platform filtering - View only Polymarket or Kalshi alerts    JSON output option - For scripting and automation    Automatic cleanup - Removes alerts older than 30 days    All alert data saved - Includes wallet activity, anomaly info, timestamps)
 // ============================================================================
 
 fn append_alert_to_log(alert_data: &serde_json::Value) -> Result<(), Box<dyn std::error::Error>> {
@@ -1043,6 +1061,7 @@ fn cleanup_old_alerts(days_to_keep: i64) -> Result<(), Box<dyn std::error::Error
 }
 
 // ============================================================================
+<<<<<<< HEAD
 // WEBHOOK/NTFY FUNCTIONS
 // ============================================================================
 
@@ -1152,6 +1171,9 @@ async fn send_generic_webhook_alert(webhook_url: &str, alert: WebhookAlert<'_>) 
 
 // ============================================================================
 // UTILITY FUNCTIONS
+=======
+// END NEW ALERT HISTORY FUNCTIONS
+>>>>>>> 30eb0ef (New history command - View past whale alerts    Automatic logging - Every alert is saved to ~/.config/wwatcher/alert_history.jsonl    JSON Lines format - Easy to process with other tools    Platform filtering - View only Polymarket or Kalshi alerts    JSON output option - For scripting and automation    Automatic cleanup - Removes alerts older than 30 days    All alert data saved - Includes wallet activity, anomaly info, timestamps)
 // ============================================================================
 
 fn play_alert_sound() {
