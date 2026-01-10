@@ -37,6 +37,20 @@ enum Commands {
     TestSound,
     /// Test webhook notification
     TestWebhook,
+    /// View alert history
+    History {
+        /// Number of alerts to show (0 for all)
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+
+        /// Filter by platform (polymarket, kalshi, or all)
+        #[arg(short, long, default_value = "all")]
+        platform: String,
+
+        /// Show in JSON format
+        #[arg(short, long)]
+        json: bool,
+    },
 }
 
 #[tokio::main]
@@ -61,6 +75,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::TestWebhook => {
             test_webhook().await?;
+        }
+        Commands::History { limit, platform, json } => {
+            show_alert_history(limit, &platform, json).await?;
         }
     }
 
@@ -309,6 +326,9 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
 
     println!();
 
+    // Clean up old alerts on startup (keep last 30 days)
+    cleanup_old_alerts(30)?;
+
     let mut last_polymarket_trade_id: Option<String> = None;
     let mut last_kalshi_trade_id: Option<String> = None;
 
@@ -354,6 +374,16 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
                                 trade_value,
                                 wallet_activity.as_ref(),
                             );
+
+                            // Log to history file
+                            if let Err(e) = create_and_log_alert(
+                                "Polymarket",
+                                trade,
+                                trade_value,
+                                wallet_activity.as_ref(),
+                            ) {
+                                eprintln!("{} Failed to log alert: {}", "[WARNING]".yellow(), e);
+                            }
 
                             // Send webhook notification
                             if let Some(ref cfg) = config {
@@ -415,6 +445,15 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
                             
                             // Note: Kalshi doesn't expose wallet IDs in public API
                             print_kalshi_alert(trade, trade_value, None);
+
+                            // Log to history file
+                            if let Err(e) = create_and_log_kalshi_alert(
+                                trade,
+                                trade_value,
+                                &outcome,
+                            ) {
+                                eprintln!("{} Failed to log Kalshi alert: {}", "[WARNING]".yellow(), e);
+                            }
 
                             // Send webhook notification
                             if let Some(ref cfg) = config {
@@ -678,6 +717,228 @@ fn print_kalshi_alert(
     println!("{}", "=".repeat(70).dimmed());
     println!();
 }
+
+// ============================================================================
+// NEW ALERT HISTORY FUNCTIONS
+// ============================================================================
+
+fn append_alert_to_log(alert_data: &serde_json::Value) -> Result<(), Box<dyn std::error::Error>> {
+    use std::fs::OpenOptions;
+    
+    let config_dir = dirs::config_dir()
+        .ok_or("Could not determine config directory")?
+        .join("wwatcher");
+    
+    std::fs::create_dir_all(&config_dir)?;
+    
+    let log_path = config_dir.join("alert_history.jsonl"); // JSON Lines format
+    
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path)?;
+    
+    let line = serde_json::to_string(alert_data)?;
+    writeln!(file, "{}", line)?;
+    
+    Ok(())
+}
+
+fn create_and_log_alert(
+    platform: &str,
+    trade: &polymarket::Trade,
+    value: f64,
+    wallet_activity: Option<&types::WalletActivity>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use serde_json::json;
+    
+    let is_sell = trade.side.to_uppercase() == "SELL";
+    let alert_type = if is_sell { "WHALE_EXIT" } else { "WHALE_ENTRY" };
+    
+    let mut alert_data = json!({
+        "platform": platform,
+        "alert_type": alert_type,
+        "action": trade.side.to_uppercase(),
+        "value": value,
+        "price": trade.price,
+        "size": trade.size,
+        "timestamp": trade.timestamp,
+        "logged_at": chrono::Utc::now().to_rfc3339(),
+        "market_id": trade.market,
+        "asset_id": trade.asset_id,
+        "trade_id": trade.id,
+    });
+    
+    // Add optional fields
+    if let Some(title) = &trade.market_title {
+        alert_data["market_title"] = json!(escape_special_chars(title));
+    }
+    
+    if let Some(outcome) = &trade.outcome {
+        alert_data["outcome"] = json!(escape_special_chars(outcome));
+    }
+    
+    if let Some(wallet_id) = &trade.wallet_id {
+        alert_data["wallet_id"] = json!(wallet_id);
+    }
+    
+    if let Some(activity) = wallet_activity {
+        alert_data["wallet_activity"] = json!({
+            "transactions_last_hour": activity.transactions_last_hour,
+            "transactions_last_day": activity.transactions_last_day,
+            "total_value_hour": activity.total_value_hour,
+            "total_value_day": activity.total_value_day,
+            "is_repeat_actor": activity.is_repeat_actor,
+            "is_heavy_actor": activity.is_heavy_actor,
+        });
+    }
+    
+    // Log to file
+    append_alert_to_log(&alert_data)?;
+    
+    Ok(())
+}
+
+fn create_and_log_kalshi_alert(
+    trade: &kalshi::Trade,
+    value: f64,
+    outcome: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use serde_json::json;
+    
+    let is_sell = trade.taker_side.to_lowercase() == "sell";
+    let alert_type = if is_sell { "WHALE_EXIT" } else { "WHALE_ENTRY" };
+    
+    let mut alert_data = json!({
+        "platform": "Kalshi",
+        "alert_type": alert_type,
+        "action": trade.taker_side.to_uppercase(),
+        "value": value,
+        "price": trade.yes_price / 100.0,
+        "size": trade.count as f64,
+        "timestamp": trade.created_time,
+        "logged_at": chrono::Utc::now().to_rfc3339(),
+        "ticker": trade.ticker,
+        "trade_id": trade.trade_id,
+        "outcome_description": outcome,
+    });
+    
+    if let Some(title) = &trade.market_title {
+        alert_data["market_title"] = json!(escape_special_chars(title));
+    }
+    
+    // Log to file
+    append_alert_to_log(&alert_data)?;
+    
+    Ok(())
+}
+
+async fn show_alert_history(limit: usize, platform: &str, json_format: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = dirs::config_dir()
+        .ok_or("Could not determine config directory")?
+        .join("wwatcher");
+    
+    let history_path = config_dir.join("alert_history.jsonl");
+    
+    if !history_path.exists() {
+        println!("No alert history found.");
+        return Ok(());
+    }
+    
+    let content = std::fs::read_to_string(history_path)?;
+    let mut alerts: Vec<serde_json::Value> = Vec::new();
+    
+    for line in content.lines() {
+        if let Ok(alert) = serde_json::from_str(line) {
+            alerts.push(alert);
+        }
+    }
+    
+    // Filter by platform if needed
+    if platform != "all" {
+        alerts.retain(|alert| {
+            alert.get("platform")
+                .and_then(|p| p.as_str())
+                .map(|p| p.to_lowercase() == platform.to_lowercase())
+                .unwrap_or(false)
+        });
+    }
+    
+    // Reverse to show newest first
+    alerts.reverse();
+    
+    // Apply limit
+    if limit > 0 {
+        alerts.truncate(limit);
+    }
+    
+    if json_format {
+        println!("{}", serde_json::to_string_pretty(&alerts)?);
+    } else {
+        println!("{}", "ALERT HISTORY".bright_cyan().bold());
+        println!("Showing {} most recent alerts", alerts.len());
+        println!("{}", "=".repeat(70));
+        
+        for alert in alerts {
+            let platform = alert.get("platform").and_then(|p| p.as_str()).unwrap_or("Unknown");
+            let alert_type = alert.get("alert_type").and_then(|t| t.as_str()).unwrap_or("Unknown");
+            let value = alert.get("value").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let market = alert.get("market_title").and_then(|m| m.as_str()).unwrap_or("N/A");
+            let timestamp = alert.get("timestamp").and_then(|t| t.as_str()).unwrap_or("N/A");
+            let logged_at = alert.get("logged_at").and_then(|t| t.as_str()).unwrap_or("N/A");
+            
+            println!("Platform:  {}", platform.bright_green());
+            println!("Type:      {} {}", 
+                alert_type,
+                if alert_type == "WHALE_EXIT" { "🚨".red() } else { "🐋".yellow() }
+            );
+            println!("Value:     {}", format!("${:.2}", value).bright_yellow());
+            println!("Market:    {}", market);
+            println!("Trade Time: {}", timestamp.dimmed());
+            println!("Logged:    {}", logged_at.dimmed());
+            println!("{}", "-".repeat(50));
+        }
+    }
+    
+    Ok(())
+}
+
+fn cleanup_old_alerts(days_to_keep: i64) -> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = dirs::config_dir()
+        .ok_or("Could not determine config directory")?
+        .join("wwatcher");
+    
+    let history_path = config_dir.join("alert_history.jsonl");
+    
+    if !history_path.exists() {
+        return Ok(());
+    }
+    
+    let cutoff = chrono::Utc::now() - chrono::Duration::days(days_to_keep);
+    let content = std::fs::read_to_string(&history_path)?;
+    let mut kept_alerts = Vec::new();
+    
+    for line in content.lines() {
+        if let Ok(alert) = serde_json::from_str::<serde_json::Value>(line) {
+            if let Some(timestamp) = alert.get("logged_at").and_then(|t| t.as_str()) {
+                if let Ok(alert_time) = chrono::DateTime::parse_from_rfc3339(timestamp) {
+                    if alert_time > cutoff {
+                        kept_alerts.push(line.to_string());
+                    }
+                }
+            }
+        }
+    }
+    
+    // Write back only recent alerts
+    std::fs::write(history_path, kept_alerts.join("\n"))?;
+    
+    Ok(())
+}
+
+// ============================================================================
+// END NEW ALERT HISTORY FUNCTIONS
+// ============================================================================
 
 fn play_alert_sound() {
     play_sound_internal("/System/Library/Sounds/Ping.aiff");
