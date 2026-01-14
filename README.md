@@ -190,6 +190,27 @@ Show current configuration status.
 wwatcher status
 ```
 
+### wwatcher history
+
+View saved alert history.
+
+Options:
+
+- `-l, --limit <NUMBER>` - Number of alerts to show (default: 20)
+- `-p, --platform <NAME>` - Filter by platform: polymarket, kalshi, or all (default: all)
+- `--json` - Output as JSON
+
+Examples:
+
+```bash
+wwatcher history                              # Show last 20 alerts
+wwatcher history --limit 50                   # Show last 50 alerts
+wwatcher history --platform polymarket        # Show only Polymarket alerts
+wwatcher history --json                       # Export as JSON
+```
+
+Alerts are automatically saved to `~/.config/wwatcher/alert_history.jsonl` whenever transactions are detected.
+
 ## Configuration File
 
 Configuration is stored at:

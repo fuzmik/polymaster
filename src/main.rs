@@ -29,6 +29,20 @@ enum Commands {
         #[arg(short, long, default_value = "5")]
         interval: u64,
     },
+    /// View alert history
+    History {
+        /// Number of alerts to show (default: 20)
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+
+        /// Filter by platform: polymarket, kalshi, or all (default: all)
+        #[arg(short, long, default_value = "all")]
+        platform: String,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Configure API credentials
     Setup,
     /// Show current configuration
@@ -55,6 +69,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             interval,
         } => {
             watch_whales(threshold, interval).await?;
+        }
+        Commands::History {
+            limit,
+            platform,
+            json,
+        } => {
+            show_alert_history(limit, &platform, json)?;
         }
         Commands::TestSound => {
             test_sound().await?;
@@ -382,25 +403,26 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
                                 wallet_activity.as_ref(),
                             );
 
+                            // Log alert to history file
+                            let alert_data = WebhookAlert {
+                                platform: "Polymarket",
+                                market_title: trade.market_title.as_deref(),
+                                outcome: trade.outcome.as_deref(),
+                                side: &trade.side,
+                                value: trade_value,
+                                price: trade.price,
+                                size: trade.size,
+                                timestamp: &trade.timestamp,
+                                wallet_id: trade.wallet_id.as_deref(),
+                                wallet_activity: wallet_activity.as_ref(),
+                            };
+                            
+                            log_alert(&alert_data);
+
                             // Send webhook notification
                             if let Some(ref cfg) = config {
                                 if let Some(ref webhook_url) = cfg.webhook_url {
-                                    send_webhook_alert(
-                                        webhook_url,
-                                        WebhookAlert {
-                                            platform: "Polymarket",
-                                            market_title: trade.market_title.as_deref(),
-                                            outcome: trade.outcome.as_deref(),
-                                            side: &trade.side,
-                                            value: trade_value,
-                                            price: trade.price,
-                                            size: trade.size,
-                                            timestamp: &trade.timestamp,
-                                            wallet_id: trade.wallet_id.as_deref(),
-                                            wallet_activity: wallet_activity.as_ref(),
-                                        },
-                                    )
-                                    .await;
+                                    send_webhook_alert(webhook_url, alert_data).await;
                                 }
                             }
                         }
@@ -446,25 +468,26 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
                             // Note: Kalshi doesn't expose wallet IDs in public API
                             print_kalshi_alert(trade, trade_value, None);
 
+                            // Log alert to history file
+                            let alert_data = WebhookAlert {
+                                platform: "Kalshi",
+                                market_title: trade.market_title.as_deref(),
+                                outcome: Some(&outcome),
+                                side: &action,
+                                value: trade_value,
+                                price: trade.yes_price / 100.0,
+                                size: f64::from(trade.count),
+                                timestamp: &trade.created_time,
+                                wallet_id: None,
+                                wallet_activity: None,
+                            };
+                            
+                            log_alert(&alert_data);
+
                             // Send webhook notification
                             if let Some(ref cfg) = config {
                                 if let Some(ref webhook_url) = cfg.webhook_url {
-                                    send_webhook_alert(
-                                        webhook_url,
-                                        WebhookAlert {
-                                            platform: "Kalshi",
-                                            market_title: trade.market_title.as_deref(),
-                                            outcome: Some(&outcome),
-                                            side: &action,
-                                            value: trade_value,
-                                            price: trade.yes_price / 100.0,
-                                            size: f64::from(trade.count),
-                                            timestamp: &trade.created_time,
-                                            wallet_id: None,
-                                            wallet_activity: None,
-                                        },
-                                    )
-                                    .await;
+                                    send_webhook_alert(webhook_url, alert_data).await;
                                 }
                             }
                         }
@@ -1004,6 +1027,146 @@ async fn send_webhook_alert(webhook_url: &str, alert: WebhookAlert<'_>) {
             eprintln!("{} Failed to send webhook: {}", "[WEBHOOK ERROR]".red(), e);
         }
     }
+}
+
+fn get_history_file_path() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+    let config_dir = dirs::config_dir()
+        .ok_or("Could not determine config directory")?;
+    let wwatcher_dir = config_dir.join("wwatcher");
+    std::fs::create_dir_all(&wwatcher_dir)?;
+    Ok(wwatcher_dir.join("alert_history.jsonl"))
+}
+
+fn log_alert(alert: &WebhookAlert) {
+    use serde_json::json;
+    
+    if let Ok(history_file) = get_history_file_path() {
+        let is_sell = alert.side.to_uppercase() == "SELL";
+        let alert_type = if is_sell { "WHALE_EXIT" } else { "WHALE_ENTRY" };
+        
+        let mut log_entry = json!({
+            "platform": alert.platform,
+            "alert_type": alert_type,
+            "action": alert.side.to_uppercase(),
+            "value": alert.value,
+            "price": alert.price,
+            "price_percent": (alert.price * 100.0).round() as i32,
+            "size": alert.size,
+            "timestamp": alert.timestamp,
+            "market_title": alert.market_title,
+            "outcome": alert.outcome,
+        });
+        
+        if let Some(wallet) = alert.wallet_id {
+            log_entry["wallet_id"] = json!(wallet);
+        }
+        
+        if let Some(activity) = alert.wallet_activity {
+            log_entry["wallet_activity"] = json!({
+                "transactions_last_hour": activity.transactions_last_hour,
+                "transactions_last_day": activity.transactions_last_day,
+                "total_value_hour": activity.total_value_hour,
+                "total_value_day": activity.total_value_day,
+                "is_repeat_actor": activity.is_repeat_actor,
+                "is_heavy_actor": activity.is_heavy_actor,
+            });
+        }
+        
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&history_file)
+        {
+            if let Ok(json_line) = serde_json::to_string(&log_entry) {
+                let _ = writeln!(file, "{}", json_line);
+            }
+        }
+    }
+}
+
+fn show_alert_history(limit: usize, platform_filter: &str, as_json: bool) -> Result<(), Box<dyn std::error::Error>> {
+    use serde_json::Value;
+    
+    let history_file = get_history_file_path()?;
+    
+    if !history_file.exists() {
+        println!("No alert history found.");
+        println!("Run {} to start monitoring and logging alerts.", "wwatcher watch".bright_cyan());
+        return Ok(());
+    }
+    
+    let contents = std::fs::read_to_string(&history_file)?;
+    let mut alerts: Vec<Value> = contents
+        .lines()
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .collect();
+    
+    // Filter by platform if specified
+    if platform_filter != "all" {
+        let filter_lower = platform_filter.to_lowercase();
+        alerts.retain(|alert| {
+            alert.get("platform")
+                .and_then(|p| p.as_str())
+                .map(|p| p.to_lowercase() == filter_lower)
+                .unwrap_or(false)
+        });
+    }
+    
+    // Reverse to show newest first
+    alerts.reverse();
+    
+    // Apply limit
+    let alerts_to_show: Vec<&Value> = alerts.iter().take(limit).collect();
+    
+    if alerts_to_show.is_empty() {
+        println!("No alerts found matching filters.");
+        return Ok(());
+    }
+    
+    if as_json {
+        println!("{}", serde_json::to_string_pretty(&alerts_to_show)?);
+    } else {
+        println!("{}", "ALERT HISTORY".bright_cyan().bold());
+        println!("Showing {} most recent alerts", alerts_to_show.len());
+        if platform_filter != "all" {
+            println!("Platform filter: {}", platform_filter);
+        }
+        println!();
+        
+        for (i, alert) in alerts_to_show.iter().enumerate() {
+            let platform = alert.get("platform").and_then(|v| v.as_str()).unwrap_or("Unknown");
+            let alert_type = alert.get("alert_type").and_then(|v| v.as_str()).unwrap_or("UNKNOWN");
+            let action = alert.get("action").and_then(|v| v.as_str()).unwrap_or("UNKNOWN");
+            let value = alert.get("value").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let timestamp = alert.get("timestamp").and_then(|v| v.as_str()).unwrap_or("Unknown");
+            let market_title = alert.get("market_title").and_then(|v| v.as_str()).unwrap_or("Unknown market");
+            let outcome = alert.get("outcome").and_then(|v| v.as_str());
+            
+            let header = format!("#{} | {} | {}", i + 1, platform, alert_type);
+            println!("{}", header.bright_yellow());
+            println!("Time:   {}", timestamp.dimmed());
+            println!("Market: {}", market_title);
+            if let Some(out) = outcome {
+                println!("Outcome: {}", out);
+            }
+            println!("Action: {} | Value: ${:.2}", action, value);
+            
+            if let Some(wallet_activity) = alert.get("wallet_activity") {
+                if let Some(txns_hour) = wallet_activity.get("transactions_last_hour").and_then(|v| v.as_u64()) {
+                    if txns_hour > 1 {
+                        println!("Wallet: {} txns in last hour", txns_hour);
+                    }
+                }
+            }
+            
+            println!();
+        }
+        
+        println!("View as JSON: {} --json", "wwatcher history".bright_cyan());
+        println!("Filter by platform: {} --platform polymarket", "wwatcher history".bright_cyan());
+    }
+    
+    Ok(())
 }
 
 fn format_number(n: u64) -> String {

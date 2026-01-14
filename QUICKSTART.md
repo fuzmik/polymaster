@@ -28,6 +28,15 @@ wwatcher watch
 
 # Customize threshold and polling interval
 wwatcher watch --threshold 50000 --interval 30
+
+# View alert history
+wwatcher history
+
+# View last 50 alerts from Polymarket only
+wwatcher history --limit 50 --platform polymarket
+
+# Export history as JSON
+wwatcher history --json
 ```
 
 ## Running as a System Service (Linux)
