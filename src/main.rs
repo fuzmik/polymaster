@@ -213,6 +213,7 @@ async fn test_webhook() -> Result<(), Box<dyn std::error::Error>> {
         is_heavy_actor: true,
     };
 
+    // Test BUY alert
     send_webhook_alert(
         &webhook_url,
         WebhookAlert {
@@ -230,16 +231,42 @@ async fn test_webhook() -> Result<(), Box<dyn std::error::Error>> {
     )
     .await;
 
+    println!("Test BUY alert sent!");
+    
+    // Test SELL alert
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    
+    send_webhook_alert(
+        &webhook_url,
+        WebhookAlert {
+            platform: "Kalshi",
+            market_title: Some("Bitcoin price on Jan 16, 2026?"),
+            outcome: Some("Bitcoin (BTC) price < $96999.99 at expiry"),
+            side: "SELL",
+            value: 35000.0,
+            price: 0.54,
+            size: 64814.81,
+            timestamp: &chrono::Utc::now().to_rfc3339(),
+            wallet_id: None,
+            wallet_activity: None,
+        },
+    )
+    .await;
+
+    println!("Test SELL alert sent!");
     println!();
-    println!("{}", "Test webhook sent!".bright_green());
+    println!("{}", "Test webhooks sent!".bright_green());
     println!("Check your n8n workflow to see if it received the data.");
     println!();
-    println!("The webhook should receive a JSON payload with:");
-    println!("  - platform: Polymarket");
-    println!("  - alert_type: WHALE_ENTRY");
-    println!("  - action: BUY");
-    println!("  - value: $50,000");
-    println!("  - Wallet activity with repeat actor flag");
+    println!("The webhooks should receive JSON payloads with:");
+    println!("  Test 1 - Polymarket BUY:");
+    println!("    - alert_type: WHALE_ENTRY");
+    println!("    - action: BUY");
+    println!("    - value: $50,000");
+    println!("  Test 2 - Kalshi SELL:");
+    println!("    - alert_type: WHALE_EXIT");
+    println!("    - action: SELL");
+    println!("    - value: $35,000");
 
     Ok(())
 }
@@ -413,9 +440,8 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
                             // Extract outcome from ticker with the side they're taking
                             let outcome = kalshi::parse_ticker_details(&trade.ticker, &trade.taker_side);
                             
-                            // For Kalshi: just show "BUY" as the action
-                            // The outcome already explains what they're betting on
-                            let action = "BUY".to_string();
+                            // Use the actual taker_side from the trade
+                            let action = trade.taker_side.to_uppercase();
                             
                             // Note: Kalshi doesn't expose wallet IDs in public API
                             print_kalshi_alert(trade, trade_value, None);
