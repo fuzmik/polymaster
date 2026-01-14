@@ -4,8 +4,7 @@ A Rust CLI tool that monitors large transactions on Polymarket and Kalshi predic
 
 Repository: https://github.com/neur0map/polymaster
 
-## DISCLAIMER
-
+## ⚠️ DISCLAIMER
 This tool is for informational and research purposes only. Use this data solely for informed decision-making and market analysis.
 
 ## Features
