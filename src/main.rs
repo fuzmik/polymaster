@@ -1,3 +1,4 @@
+// main.rs
 mod config;
 mod kalshi;
 mod polymarket;
@@ -11,7 +12,7 @@ use tokio::time;
 
 #[derive(Parser)]
 #[command(name = "wwatcher")]
-#[command(about = "Whale Watcher - Monitor large transactions on Polymarket and Kalshi", long_about = None)]
+#[command(about = "🐋 Whale Watcher - Monitor large transactions on Polymarket and Kalshi", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -19,37 +20,37 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Watch for large transactions (default threshold: $25,000)
+    /// 👀 Watch for large transactions (default threshold: $25,000)
     Watch {
-        /// Minimum transaction size to alert on (in USD)
+        /// 💰 Minimum transaction size to alert on (in USD)
         #[arg(short, long, default_value = "25000")]
         threshold: u64,
 
-        /// Polling interval in seconds
+        /// ⏱️ Polling interval in seconds
         #[arg(short, long, default_value = "5")]
         interval: u64,
     },
-    /// View alert history
+    /// 📜 View alert history
     History {
-        /// Number of alerts to show (default: 20)
+        /// 🔢 Number of alerts to show (default: 20)
         #[arg(short, long, default_value = "20")]
         limit: usize,
 
-        /// Filter by platform: polymarket, kalshi, or all (default: all)
+        /// 📱 Filter by platform: polymarket, kalshi, or all (default: all)
         #[arg(short, long, default_value = "all")]
         platform: String,
 
-        /// Output as JSON
+        /// 📄 Output as JSON
         #[arg(long)]
         json: bool,
     },
-    /// Configure API credentials
+    /// ⚙️ Configure API credentials
     Setup,
-    /// Show current configuration
+    /// 📊 Show current configuration
     Status,
-    /// Test alert sound
+    /// 🔊 Test alert sound
     TestSound,
-    /// Test webhook notification
+    /// 🌐 Test webhook notification
     TestWebhook,
 }
 
@@ -89,52 +90,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn setup_config() -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}", "WHALE WATCHER SETUP".bright_cyan().bold());
+    println!("{}", "🐋 WHALE WATCHER SETUP".bright_cyan().bold());
     println!();
 
-    println!("This tool monitors large transactions on Polymarket and Kalshi.");
-    println!("API credentials are optional - the tool works with public data.");
+    println!("📊 This tool monitors large transactions on Polymarket and Kalshi.");
+    println!("🔑 API credentials are optional - the tool works with public data.");
     println!();
 
     // Get Kalshi credentials (optional)
-    println!("{}", "Kalshi Configuration (optional):".bright_yellow());
-    println!("Generate API keys at: https://kalshi.com/profile/api-keys");
-    println!("Press Enter to skip if you don't have credentials.");
+    println!("{}", "🔐 Kalshi Configuration (optional):".bright_yellow());
+    println!("🔗 Generate API keys at: https://kalshi.com/profile/api-keys");
+    println!("⏭️ Press Enter to skip if you don't have credentials.");
     println!();
 
-    print!("Enter Kalshi API Key ID (or press Enter to skip): ");
+    print!("📝 Enter Kalshi API Key ID (or press Enter to skip): ");
     io::stdout().flush()?;
     let mut kalshi_key_id = String::new();
     std::io::stdin().read_line(&mut kalshi_key_id)?;
     let kalshi_key_id = kalshi_key_id.trim().to_string();
 
     let kalshi_private_key = if !kalshi_key_id.is_empty() {
-        print!("Enter Kalshi Private Key: ");
+        print!("🔒 Enter Kalshi Private Key: ");
         io::stdout().flush()?;
         let mut key = String::new();
         std::io::stdin().read_line(&mut key)?;
         key.trim().to_string()
     } else {
-        println!("Skipping Kalshi API configuration.");
+        println!("⏭️ Skipping Kalshi API configuration.");
         String::new()
     };
 
     println!();
-    println!("{}", "Webhook Configuration (optional):".bright_yellow());
-    println!("Send alerts to a webhook URL (works with n8n, Zapier, Make, etc.)");
-    println!("Example: https://your-n8n-instance.com/webhook/whale-alerts");
+    println!("{}", "🔔 Webhook Configuration (optional):".bright_yellow());
+    println!("🌐 Send alerts to a webhook URL (works with n8n, Zapier, Make, etc.)");
+    println!("📝 Example: https://your-n8n-instance.com/webhook/whale-alerts");
     println!();
 
-    print!("Enter Webhook URL (or press Enter to skip): ");
+    print!("🔗 Enter Webhook URL (or press Enter to skip): ");
     io::stdout().flush()?;
     let mut webhook_url = String::new();
     std::io::stdin().read_line(&mut webhook_url)?;
     let webhook_url = webhook_url.trim().to_string();
 
     if webhook_url.is_empty() {
-        println!("Skipping webhook configuration.");
+        println!("⏭️ Skipping webhook configuration.");
     } else {
-        println!("Webhook configured: {}", webhook_url.bright_green());
+        println!("✅ Webhook configured: {}", webhook_url.bright_green());
     }
 
     println!();
@@ -160,10 +161,10 @@ async fn setup_config() -> Result<(), Box<dyn std::error::Error>> {
 
     config::save_config(&config)?;
 
-    println!("{}", "Configuration saved successfully.".bright_green());
+    println!("💾 {} Configuration saved successfully.", "✅".bright_green());
     println!();
     println!(
-        "Run {} to start watching for whale transactions.",
+        "🚀 Run {} to start watching for whale transactions.",
         "wwatcher watch".bright_cyan()
     );
 
@@ -171,14 +172,14 @@ async fn setup_config() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn test_sound() -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}", "TESTING ALERT SOUND".bright_cyan().bold());
+    println!("{}", "🔊 TESTING ALERT SOUND".bright_cyan().bold());
     println!();
-    println!("Playing single alert...");
+    println!("🎵 Playing single alert...");
     play_alert_sound();
 
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
-    println!("Playing triple alert (for repeat actors)...");
+    println!("🎶 Playing triple alert (for repeat actors)...");
     play_alert_sound();
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     play_alert_sound();
@@ -186,17 +187,17 @@ async fn test_sound() -> Result<(), Box<dyn std::error::Error>> {
     play_alert_sound();
 
     println!();
-    println!("{}", "Sound test complete.".bright_green());
-    println!("If you didn't hear anything, check:");
-    println!("  1. System volume is not muted");
-    println!("  2. Sound file exists: /System/Library/Sounds/Ping.aiff");
-    println!("  3. Try: afplay /System/Library/Sounds/Ping.aiff");
+    println!("{}", "✅ Sound test complete.".bright_green());
+    println!("🔍 If you didn't hear anything, check:");
+    println!("  1. 🔊 System volume is not muted");
+    println!("  2. 📁 Sound file exists: /System/Library/Sounds/Ping.aiff");
+    println!("  3. 🔧 Try: afplay /System/Library/Sounds/Ping.aiff");
 
     Ok(())
 }
 
 async fn test_webhook() -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}", "TESTING WEBHOOK".bright_cyan().bold());
+    println!("{}", "🌐 TESTING WEBHOOK".bright_cyan().bold());
     println!();
 
     let config = match config::load_config() {
@@ -204,7 +205,7 @@ async fn test_webhook() -> Result<(), Box<dyn std::error::Error>> {
         Err(_) => {
             println!(
                 "{}",
-                "No configuration found. Run 'wwatcher setup' first.".red()
+                "❌ No configuration found. Run 'wwatcher setup' first.".red()
             );
             return Ok(());
         }
@@ -215,13 +216,13 @@ async fn test_webhook() -> Result<(), Box<dyn std::error::Error>> {
         None => {
             println!(
                 "{}",
-                "No webhook configured. Run 'wwatcher setup' to add a webhook URL.".red()
+                "❌ No webhook configured. Run 'wwatcher setup' to add a webhook URL.".red()
             );
             return Ok(());
         }
     };
 
-    println!("Sending test alert to: {}", webhook_url.bright_green());
+    println!("📤 Sending test alert to: {}", webhook_url.bright_green());
     println!();
 
     // Create a test alert
@@ -252,7 +253,7 @@ async fn test_webhook() -> Result<(), Box<dyn std::error::Error>> {
     )
     .await;
 
-    println!("Test BUY alert sent!");
+    println!("✅ Test BUY alert sent!");
     
     // Test SELL alert
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -274,54 +275,54 @@ async fn test_webhook() -> Result<(), Box<dyn std::error::Error>> {
     )
     .await;
 
-    println!("Test SELL alert sent!");
+    println!("✅ Test SELL alert sent!");
     println!();
-    println!("{}", "Test webhooks sent!".bright_green());
-    println!("Check your n8n workflow to see if it received the data.");
+    println!("{}", "✅ Test webhooks sent!".bright_green());
+    println!("🔍 Check your n8n workflow to see if it received the data.");
     println!();
-    println!("The webhooks should receive JSON payloads with:");
-    println!("  Test 1 - Polymarket BUY:");
-    println!("    - alert_type: WHALE_ENTRY");
-    println!("    - action: BUY");
-    println!("    - value: $50,000");
-    println!("  Test 2 - Kalshi SELL:");
-    println!("    - alert_type: WHALE_EXIT");
-    println!("    - action: SELL");
-    println!("    - value: $35,000");
+    println!("📦 The webhooks should receive JSON payloads with:");
+    println!("  📤 Test 1 - Polymarket BUY:");
+    println!("    - 📊 alert_type: WHALE_ENTRY");
+    println!("    - 📈 action: BUY");
+    println!("    - 💰 value: $50,000");
+    println!("  📤 Test 2 - Kalshi SELL:");
+    println!("    - 📊 alert_type: WHALE_EXIT");
+    println!("    - 📉 action: SELL");
+    println!("    - 💰 value: $35,000");
 
     Ok(())
 }
 
 async fn show_status() -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}", "WHALE WATCHER STATUS".bright_cyan().bold());
+    println!("{}", "🐋 WHALE WATCHER STATUS".bright_cyan().bold());
     println!();
 
     match config::load_config() {
         Ok(cfg) => {
-            println!("Configuration:");
+            println!("🔧 Configuration:");
             println!(
-                "  Kalshi API: {}",
+                "  📊 Kalshi API: {}",
                 if cfg.kalshi_api_key_id.is_some() {
-                    "Configured".green()
+                    "✅ Configured".green()
                 } else {
-                    "Not configured (using public data)".yellow()
+                    "⚠️ Not configured (using public data)".yellow()
                 }
             );
             println!(
-                "  Polymarket API: {}",
-                "Public access (no key needed)".green()
+                "  📈 Polymarket API: {}",
+                "✅ Public access (no key needed)".green()
             );
             println!(
-                "  Webhook: {}",
+                "  🔔 Webhook: {}",
                 if cfg.webhook_url.is_some() {
-                    format!("Configured ({})", cfg.webhook_url.as_ref().unwrap()).green()
+                    format!("✅ Configured ({})", cfg.webhook_url.as_ref().unwrap()).green()
                 } else {
-                    "Not configured".yellow()
+                    "⚠️ Not configured".yellow()
                 }
             );
         }
         Err(_) => {
-            println!("No configuration found. Run 'wwatcher setup' to configure.");
+            println!("❌ No configuration found. Run 'wwatcher setup' to configure.");
         }
     }
 
@@ -331,27 +332,27 @@ async fn show_status() -> Result<(), Box<dyn std::error::Error>> {
 async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::error::Error>> {
     // Display disclaimer
     println!("{}", "=".repeat(70).bright_yellow());
-    println!("{}", "DISCLAIMER".bright_yellow().bold());
-    println!("This tool is for informational and research purposes only.");
-    println!("I do not condone gambling or speculative trading.");
-    println!("Use this data solely for informed decision-making and market analysis.");
-    println!("Trade responsibly and within your means.");
+    println!("{}", "⚠️ DISCLAIMER".bright_yellow().bold());
+    println!("📊 This tool is for informational and research purposes only.");
+    println!("🎲 I do not condone gambling or speculative trading.");
+    println!("🧠 Use this data solely for informed decision-making and market analysis.");
+    println!("💰 Trade responsibly and within your means.");
     println!("{}", "=".repeat(70).bright_yellow());
     println!();
 
-    println!("{}", "WHALE WATCHER ACTIVE".bright_cyan().bold());
+    println!("{}", "🐋 WHALE WATCHER ACTIVE".bright_cyan().bold());
     println!(
-        "Threshold: {}",
+        "💰 Threshold: {}",
         format!("${}", format_number(threshold)).bright_green()
     );
-    println!("Interval:  {} seconds", interval);
+    println!("⏱️ Interval:  {} seconds", interval);
 
     // Load config (optional credentials)
     let config = config::load_config().ok();
 
     if let Some(ref cfg) = config {
         if cfg.webhook_url.is_some() {
-            println!("Webhook:   {}", "Enabled".bright_green());
+            println!("🔔 Webhook:   {}", "✅ Enabled".bright_green());
         }
     }
 
@@ -432,7 +433,7 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
                 }
             }
             Err(e) => {
-                eprintln!("{} {}", "[ERROR] Polymarket:".red(), e);
+                eprintln!("{} {}", "❌ [ERROR] Polymarket:".red(), e);
             }
         }
 
@@ -497,7 +498,7 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
                 }
             }
             Err(e) => {
-                eprintln!("{} {}", "[ERROR] Kalshi:".red(), e);
+                eprintln!("{} {}", "❌ [ERROR] Kalshi:".red(), e);
             }
         }
     }
@@ -529,29 +530,29 @@ fn print_whale_alert(
 
     println!();
 
-    // Enhanced header for repeat actors or exits
+    // Enhanced header for repeat actors or exits with emojis
     let header = if is_sell {
         if let Some(activity) = wallet_activity {
             if activity.is_heavy_actor {
-                format!("[HIGH PRIORITY] WHALE EXITING POSITION - {}", platform)
+                format!("🚨🐋🔥 [HIGH PRIORITY] WHALE EXITING POSITION - {}", platform)
             } else if activity.is_repeat_actor {
-                format!("[ELEVATED ALERT] WHALE EXITING POSITION - {}", platform)
+                format!("🚨🐋⚠️ [ELEVATED ALERT] WHALE EXITING POSITION - {}", platform)
             } else {
-                format!("[ALERT] WHALE EXITING POSITION - {}", platform)
+                format!("🚨🐋 [ALERT] WHALE EXITING POSITION - {}", platform)
             }
         } else {
-            format!("[ALERT] WHALE EXITING POSITION - {}", platform)
+            format!("🚨🐋 [ALERT] WHALE EXITING POSITION - {}", platform)
         }
     } else if let Some(activity) = wallet_activity {
         if activity.is_heavy_actor {
-            format!("[HIGH PRIORITY ALERT] REPEAT HEAVY ACTOR - {}", platform)
+            format!("🚨🐋🔥 [HIGH PRIORITY ALERT] REPEAT HEAVY ACTOR - {}", platform)
         } else if activity.is_repeat_actor {
-            format!("[ELEVATED ALERT] REPEAT ACTOR - {}", platform)
+            format!("🚨🐋⚠️ [ELEVATED ALERT] REPEAT ACTOR - {}", platform)
         } else {
-            format!("[ALERT] LARGE TRANSACTION DETECTED - {}", platform)
+            format!("🚨 [ALERT] LARGE TRANSACTION DETECTED - {}", platform)
         }
     } else {
-        format!("[ALERT] LARGE TRANSACTION DETECTED - {}", platform)
+        format!("🚨 [ALERT] LARGE TRANSACTION DETECTED - {}", platform)
     };
 
     println!("{}", header.bright_red().bold());
@@ -559,55 +560,55 @@ fn print_whale_alert(
 
     // Display market title if available
     if let Some(ref title) = trade.market_title {
-        println!("Question:   {}", title.bright_white().bold());
+        println!("📋 Question:   {}", title.bright_white().bold());
 
         if let Some(ref outcome) = trade.outcome {
             let action = if trade.side.to_uppercase() == "BUY" {
-                format!("BUYING '{}' shares", outcome)
+                format!("📈 BUYING '{}' shares", outcome)
             } else {
-                format!("SELLING '{}' shares (EXITING POSITION)", outcome)
+                format!("📉 SELLING '{}' shares (EXITING POSITION)", outcome)
             };
             let action_color = if trade.side.to_uppercase() == "SELL" {
                 action.bright_red().bold()
             } else {
                 action.bright_yellow().bold()
             };
-            println!("Position:   {}", action_color);
+            println!("🎯 Position:   {}", action_color);
             println!(
-                "Prediction: Market believes '{}' has {:.1}% chance",
+                "🎲 Prediction: Market believes '{}' has {:.1}% chance",
                 outcome,
                 trade.price * 100.0
             );
         }
     } else {
         println!(
-            "Market:     Unknown (ID: {})",
+            "🏷️ Market:     Unknown (ID: {})",
             &trade.market[..20.min(trade.market.len())]
         );
     }
 
     println!();
-    println!("{}", "TRANSACTION DETAILS".dimmed());
+    println!("{}", "💰 TRANSACTION DETAILS".dimmed());
     println!(
-        "Amount:     {}",
+        "💵 Amount:     {}",
         format!("${:.2}", value).bright_yellow().bold()
     );
-    println!("Contracts:  {:.2} @ ${:.4} each", trade.size, trade.price);
+    println!("📜 Contracts:  {:.2} @ ${:.4} each", trade.size, trade.price);
     let action_text = if is_sell {
-        format!("{} shares", trade.side.to_uppercase()).bright_red()
+        format!("📉 {} shares", trade.side.to_uppercase()).bright_red()
     } else {
-        format!("{} shares", trade.side.to_uppercase()).bright_magenta()
+        format!("📈 {} shares", trade.side.to_uppercase()).bright_magenta()
     };
-    println!("Action:     {}", action_text);
-    println!("Timestamp:  {}", trade.timestamp);
+    println!("📊 Action:     {}", action_text);
+    println!("🕐 Timestamp:  {}", trade.timestamp);
 
     // Display wallet activity if available
     if let Some(activity) = wallet_activity {
         if let Some(ref wallet_id) = trade.wallet_id {
             println!();
-            println!("{}", "[WALLET ACTIVITY]".bright_cyan().bold());
+            println!("{}", "👛 [WALLET ACTIVITY]".bright_cyan().bold());
             println!(
-                "Wallet:   {}...{}",
+                "🔑 Wallet:   {}...{}",
                 &wallet_id[..8.min(wallet_id.len())],
                 if wallet_id.len() > 8 {
                     &wallet_id[wallet_id.len() - 6..]
@@ -615,22 +616,22 @@ fn print_whale_alert(
                     ""
                 }
             );
-            println!("Txns (1h):  {}", activity.transactions_last_hour);
-            println!("Txns (24h): {}", activity.transactions_last_day);
-            println!("Volume (1h):  ${:.2}", activity.total_value_hour);
-            println!("Volume (24h): ${:.2}", activity.total_value_day);
+            println!("🔄 Txns (1h):  {}", activity.transactions_last_hour);
+            println!("📅 Txns (24h): {}", activity.transactions_last_day);
+            println!("💸 Volume (1h):  ${:.2}", activity.total_value_hour);
+            println!("💰 Volume (24h): ${:.2}", activity.total_value_day);
 
             if activity.is_heavy_actor {
                 println!(
                     "{}",
-                    "Status: HEAVY ACTOR (5+ transactions in 24h)"
+                    "🔥 Status: HEAVY ACTOR (5+ transactions in 24h)"
                         .bright_red()
                         .bold()
                 );
             } else if activity.is_repeat_actor {
                 println!(
                     "{}",
-                    "Status: REPEAT ACTOR (multiple transactions detected)"
+                    "⚠️ Status: REPEAT ACTOR (multiple transactions detected)"
                         .yellow()
                         .bold()
                 );
@@ -641,7 +642,7 @@ fn print_whale_alert(
     // Anomaly detection
     detect_anomalies(trade.price, trade.size, value, wallet_activity);
 
-    println!("Asset ID: {}", trade.asset_id.dimmed());
+    println!("🔢 Asset ID: {}", trade.asset_id.dimmed());
     println!("{}", "=".repeat(70).dimmed());
     println!();
 }
@@ -678,43 +679,43 @@ fn print_kalshi_alert(
 
     println!();
 
-    // Enhanced header for exits and repeat actors
+    // Enhanced header for exits and repeat actors with emojis
     let header = if is_sell {
         if let Some(activity) = wallet_activity {
             if activity.is_heavy_actor {
-                "[HIGH PRIORITY] WHALE EXITING POSITION - Kalshi"
+                "🚨🐋🔥 [HIGH PRIORITY] WHALE EXITING POSITION - Kalshi"
                     .bright_red()
                     .bold()
             } else if activity.is_repeat_actor {
-                "[ELEVATED ALERT] WHALE EXITING POSITION - Kalshi"
+                "🚨🐋⚠️ [ELEVATED ALERT] WHALE EXITING POSITION - Kalshi"
                     .bright_red()
                     .bold()
             } else {
-                "[ALERT] WHALE EXITING POSITION - Kalshi"
+                "🚨🐋 [ALERT] WHALE EXITING POSITION - Kalshi"
                     .bright_red()
                     .bold()
             }
         } else {
-            "[ALERT] WHALE EXITING POSITION - Kalshi"
+            "🚨🐋 [ALERT] WHALE EXITING POSITION - Kalshi"
                 .bright_red()
                 .bold()
         }
     } else if let Some(activity) = wallet_activity {
         if activity.is_heavy_actor {
-            "[HIGH PRIORITY ALERT] REPEAT HEAVY ACTOR - Kalshi"
+            "🚨🐋🔥 [HIGH PRIORITY ALERT] REPEAT HEAVY ACTOR - Kalshi"
                 .bright_green()
                 .bold()
         } else if activity.is_repeat_actor {
-            "[ELEVATED ALERT] REPEAT ACTOR - Kalshi"
+            "🚨🐋⚠️ [ELEVATED ALERT] REPEAT ACTOR - Kalshi"
                 .bright_green()
                 .bold()
         } else {
-            "[ALERT] LARGE TRANSACTION DETECTED - Kalshi"
+            "🚨 [ALERT] LARGE TRANSACTION DETECTED - Kalshi"
                 .bright_green()
                 .bold()
         }
     } else {
-        "[ALERT] LARGE TRANSACTION DETECTED - Kalshi"
+        "🚨 [ALERT] LARGE TRANSACTION DETECTED - Kalshi"
             .bright_green()
             .bold()
     };
@@ -724,27 +725,27 @@ fn print_kalshi_alert(
 
     // Display market title if available
     if let Some(ref title) = trade.market_title {
-        println!("Question:   {}", title.bright_white().bold());
+        println!("📋 Question:   {}", title.bright_white().bold());
     }
 
-    // Parse and display what the bet means
+    // Parse and display what the bet means (now includes emojis from kalshi::parse_ticker_details)
     let bet_details = kalshi::parse_ticker_details(&trade.ticker, &trade.taker_side);
     let bet_color = if is_sell {
         bet_details.bright_red().bold()
     } else {
         bet_details.bright_yellow().bold()
     };
-    println!("Position:   {}", bet_color);
+    println!("🎯 Position:   {}", bet_color);
 
     let direction_text = if is_sell {
         format!(
-            "{} (EXITING {} position)",
+            "📉 {} (EXITING {} position)",
             trade.taker_side.to_uppercase(),
             trade.taker_side.to_uppercase()
         )
     } else {
         format!(
-            "{} (buying {} outcome)",
+            "📈 {} (buying {} outcome)",
             trade.taker_side.to_uppercase(),
             trade.taker_side.to_uppercase()
         )
@@ -754,48 +755,48 @@ fn print_kalshi_alert(
     } else {
         direction_text.bright_magenta()
     };
-    println!("Direction:  {}", direction_color);
+    println!("📊 Direction:  {}", direction_color);
 
     println!();
-    println!("{}", "TRANSACTION DETAILS".dimmed());
+    println!("{}", "💰 TRANSACTION DETAILS".dimmed());
     println!(
-        "Amount:     {}",
+        "💵 Amount:     {}",
         format!("${:.2}", value).bright_yellow().bold()
     );
     println!(
-        "Contracts:  {} @ ${:.2} avg",
+        "📜 Contracts:  {} @ ${:.2} avg",
         trade.count,
         value / trade.count as f64
     );
     println!(
-        "Odds:       YES: {:.1}% | NO: {:.1}%",
+        "🎲 Odds:       ✅ YES: {:.1}% | ❌ NO: {:.1}%",
         trade.yes_price, trade.no_price
     );
-    println!("Timestamp:  {}", trade.created_time);
+    println!("🕐 Timestamp:  {}", trade.created_time);
     println!();
-    println!("{}", format!("Ticker: {}", trade.ticker).dimmed());
+    println!("{}", format!("🏷️ Ticker: {}", trade.ticker).dimmed());
 
     // Display wallet activity if available (note: Kalshi public API doesn't expose wallet IDs)
     if let Some(activity) = wallet_activity {
         println!();
-        println!("{}", "[WALLET ACTIVITY]".bright_cyan().bold());
-        println!("Note: Kalshi public API doesn't expose wallet IDs, but patterns suggest:");
-        println!("Txns (1h):  {}", activity.transactions_last_hour);
-        println!("Txns (24h): {}", activity.transactions_last_day);
-        println!("Volume (1h):  ${:.2}", activity.total_value_hour);
-        println!("Volume (24h): ${:.2}", activity.total_value_day);
+        println!("{}", "👛 [WALLET ACTIVITY]".bright_cyan().bold());
+        println!("ℹ️  Note: Kalshi public API doesn't expose wallet IDs, but patterns suggest:");
+        println!("🔄 Txns (1h):  {}", activity.transactions_last_hour);
+        println!("📅 Txns (24h): {}", activity.transactions_last_day);
+        println!("💸 Volume (1h):  ${:.2}", activity.total_value_hour);
+        println!("💰 Volume (24h): ${:.2}", activity.total_value_day);
 
         if activity.is_heavy_actor {
             println!(
                 "{}",
-                "Status: HEAVY ACTOR (5+ transactions in 24h)"
+                "🔥 Status: HEAVY ACTOR (5+ transactions in 24h)"
                     .bright_red()
                     .bold()
             );
         } else if activity.is_repeat_actor {
             println!(
                 "{}",
-                "Status: REPEAT ACTOR (multiple transactions detected)"
+                "⚠️ Status: REPEAT ACTOR (multiple transactions detected)"
                     .yellow()
                     .bold()
             );
@@ -870,19 +871,19 @@ fn detect_anomalies(
     if let Some(activity) = wallet_activity {
         if activity.is_heavy_actor {
             anomalies.push(format!(
-                "HEAVY ACTOR: {} transactions worth ${:.2} in last 24h",
+                "🔥 HEAVY ACTOR: {} transactions worth ${:.2} in last 24h",
                 activity.transactions_last_day, activity.total_value_day
             ));
         }
         if activity.is_repeat_actor && !activity.is_heavy_actor {
             anomalies.push(format!(
-                "Repeat actor: {} transactions in last hour",
+                "⚠️ Repeat actor: {} transactions in last hour",
                 activity.transactions_last_hour
             ));
         }
         if activity.total_value_hour > 200000.0 {
             anomalies.push(format!(
-                "Coordinated activity: ${:.0} volume in past hour",
+                "🤝 Coordinated activity: ${:.0} volume in past hour",
                 activity.total_value_hour
             ));
         }
@@ -891,35 +892,35 @@ fn detect_anomalies(
     // Extreme confidence (very high or very low probability)
     if price > 0.95 {
         anomalies.push(format!(
-            "Extreme confidence bet ({:.1}% probability)",
+            "🎯 Extreme confidence bet ({:.1}% probability)",
             price * 100.0
         ));
     } else if price < 0.05 {
         anomalies.push(format!(
-            "Contrarian position ({:.1}% probability)",
+            "🃏 Contrarian position ({:.1}% probability)",
             price * 100.0
         ));
     }
 
     // Unusual size relative to typical market activity
     if size > 100000.0 {
-        anomalies.push("Exceptionally large position size".to_string());
+        anomalies.push("📏 Exceptionally large position size".to_string());
     }
 
     // Very large single transaction
     if value > 100000.0 {
-        anomalies.push(format!("Major capital deployment: ${:.0}", value));
+        anomalies.push(format!("💰 Major capital deployment: ${:.0}", value));
     }
 
     // Edge case: betting on near-certain outcomes with large size
     if price > 0.90 && size > 50000.0 {
-        anomalies.push("High conviction in likely outcome".to_string());
+        anomalies.push("✅ High conviction in likely outcome".to_string());
     }
 
     // Edge case: large bet on unlikely outcome (potential insider info or hedge)
     if price < 0.20 && value > 50000.0 {
         anomalies.push(
-            "Significant bet on unlikely outcome - possible hedge or information asymmetry"
+            "🕵️ Significant bet on unlikely outcome - possible hedge or information asymmetry"
                 .to_string(),
         );
     }
@@ -930,7 +931,7 @@ fn detect_anomalies(
         play_anomaly_sound();
 
         println!();
-        println!("{}", "[ANOMALY INDICATORS]".bright_red().bold());
+        println!("{}", "🚨 [ANOMALY INDICATORS]".bright_red().bold());
         for anomaly in anomalies {
             println!("  - {}", anomaly.yellow());
         }
@@ -1018,13 +1019,13 @@ async fn send_webhook_alert(webhook_url: &str, alert: WebhookAlert<'_>) {
             if !response.status().is_success() {
                 eprintln!(
                     "{} Webhook failed with status: {}",
-                    "[WEBHOOK ERROR]".red(),
+                    "❌ [WEBHOOK ERROR]".red(),
                     response.status()
                 );
             }
         }
         Err(e) => {
-            eprintln!("{} Failed to send webhook: {}", "[WEBHOOK ERROR]".red(), e);
+            eprintln!("{} Failed to send webhook: {}", "❌ [WEBHOOK ERROR]".red(), e);
         }
     }
 }
@@ -1090,8 +1091,8 @@ fn show_alert_history(limit: usize, platform_filter: &str, as_json: bool) -> Res
     let history_file = get_history_file_path()?;
     
     if !history_file.exists() {
-        println!("No alert history found.");
-        println!("Run {} to start monitoring and logging alerts.", "wwatcher watch".bright_cyan());
+        println!("📭 No alert history found.");
+        println!("🚀 Run {} to start monitoring and logging alerts.", "wwatcher watch".bright_cyan());
         return Ok(());
     }
     
@@ -1119,17 +1120,17 @@ fn show_alert_history(limit: usize, platform_filter: &str, as_json: bool) -> Res
     let alerts_to_show: Vec<&Value> = alerts.iter().take(limit).collect();
     
     if alerts_to_show.is_empty() {
-        println!("No alerts found matching filters.");
+        println!("🔍 No alerts found matching filters.");
         return Ok(());
     }
     
     if as_json {
         println!("{}", serde_json::to_string_pretty(&alerts_to_show)?);
     } else {
-        println!("{}", "ALERT HISTORY".bright_cyan().bold());
-        println!("Showing {} most recent alerts", alerts_to_show.len());
+        println!("{}", "📜 ALERT HISTORY".bright_cyan().bold());
+        println!("📊 Showing {} most recent alerts", alerts_to_show.len());
         if platform_filter != "all" {
-            println!("Platform filter: {}", platform_filter);
+            println!("🎯 Platform filter: {}", platform_filter);
         }
         println!();
         
@@ -1144,17 +1145,17 @@ fn show_alert_history(limit: usize, platform_filter: &str, as_json: bool) -> Res
             
             let header = format!("#{} | {} | {}", i + 1, platform, alert_type);
             println!("{}", header.bright_yellow());
-            println!("Time:   {}", timestamp.dimmed());
-            println!("Market: {}", market_title);
+            println!("🕐 Time:   {}", timestamp.dimmed());
+            println!("📋 Market: {}", market_title);
             if let Some(out) = outcome {
-                println!("Outcome: {}", out);
+                println!("🎯 Outcome: {}", out);
             }
-            println!("Action: {} | Value: ${:.2}", action, value);
+            println!("📊 Action: {} | 💰 Value: ${:.2}", action, value);
             
             if let Some(wallet_activity) = alert.get("wallet_activity") {
                 if let Some(txns_hour) = wallet_activity.get("transactions_last_hour").and_then(|v| v.as_u64()) {
                     if txns_hour > 1 {
-                        println!("Wallet: {} txns in last hour", txns_hour);
+                        println!("👛 Wallet: {} txns in last hour", txns_hour);
                     }
                 }
             }
@@ -1162,8 +1163,8 @@ fn show_alert_history(limit: usize, platform_filter: &str, as_json: bool) -> Res
             println!();
         }
         
-        println!("View as JSON: {} --json", "wwatcher history".bright_cyan());
-        println!("Filter by platform: {} --platform polymarket", "wwatcher history".bright_cyan());
+        println!("📄 View as JSON: {} --json", "wwatcher history".bright_cyan());
+        println!("🎯 Filter by platform: {} --platform polymarket", "wwatcher history".bright_cyan());
     }
     
     Ok(())
