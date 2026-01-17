@@ -124,6 +124,7 @@ async fn setup_config() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "🔔 Webhook Configuration (optional):".bright_yellow());
     println!("🌐 Send alerts to a webhook URL (works with n8n, Zapier, Make, etc.)");
     println!("📝 Example: https://your-n8n-instance.com/webhook/whale-alerts");
+    println!("📱 For ntfy: http://your-ntfy-server:8080/whale-alerts");
     println!();
 
     print!("🔗 Enter Webhook URL (or press Enter to skip): ");
@@ -278,17 +279,15 @@ async fn test_webhook() -> Result<(), Box<dyn std::error::Error>> {
     println!("✅ Test SELL alert sent!");
     println!();
     println!("{}", "✅ Test webhooks sent!".bright_green());
-    println!("🔍 Check your n8n workflow to see if it received the data.");
+    println!("🔍 Check your ntfy server to see if it received the alerts.");
     println!();
-    println!("📦 The webhooks should receive JSON payloads with:");
+    println!("📱 The alerts should appear as formatted messages with emojis:");
     println!("  📤 Test 1 - Polymarket BUY:");
-    println!("    - 📊 alert_type: WHALE_ENTRY");
-    println!("    - 📈 action: BUY");
-    println!("    - 💰 value: $50,000");
+    println!("    - Title: 📈 WHALE BUYING");
+    println!("    - Tags: 🚨,🐋,📈");
     println!("  📤 Test 2 - Kalshi SELL:");
-    println!("    - 📊 alert_type: WHALE_EXIT");
-    println!("    - 📉 action: SELL");
-    println!("    - 💰 value: $35,000");
+    println!("    - Title: 📉 WHALE SELLING");
+    println!("    - Tags: 🚨,🐋,📉");
 
     Ok(())
 }
@@ -951,32 +950,13 @@ struct WebhookAlert<'a> {
     wallet_activity: Option<&'a types::WalletActivity>,
 }
 
-// Sanitize text for messaging platforms that use Markdown/HTML parsing
-// Remove ALL special characters that could cause parsing issues
-fn escape_special_chars(s: &str) -> String {
-    s.chars()
-        .map(|c| match c {
-            // Keep only alphanumeric, spaces, and very basic punctuation
-            'a'..='z' | 'A'..='Z' | '0'..='9' | ' ' | ',' | ':' | '?' | '.' => c,
-            // Convert parentheses and brackets to safe versions
-            '(' | '[' | '{' => '(',
-            ')' | ']' | '}' => ')',
-            // Remove all other characters completely (including $ & % etc)
-            _ => ' ',
-        })
-        .collect::<String>()
-        // Clean up multiple spaces
-        .split_whitespace()
-        .collect::<Vec<&str>>()
-        .join(" ")
-}
-
 async fn send_webhook_alert(webhook_url: &str, alert: WebhookAlert<'_>) {
     use serde_json::json;
 
     let is_sell = alert.side.to_uppercase() == "SELL";
     let alert_type = if is_sell { "WHALE_EXIT" } else { "WHALE_ENTRY" };
 
+    // Build the JSON payload
     let mut payload = json!({
         "platform": alert.platform,
         "alert_type": alert_type,
@@ -986,8 +966,8 @@ async fn send_webhook_alert(webhook_url: &str, alert: WebhookAlert<'_>) {
         "price_percent": (alert.price * 100.0).round() as i32,
         "size": alert.size,
         "timestamp": alert.timestamp,
-        "market_title": alert.market_title.map(escape_special_chars),
-        "outcome": alert.outcome.map(escape_special_chars),
+        "market_title": alert.market_title,
+        "outcome": alert.outcome,
     });
 
     // Add wallet information if available
@@ -1006,26 +986,98 @@ async fn send_webhook_alert(webhook_url: &str, alert: WebhookAlert<'_>) {
         });
     }
 
-    // Send POST request to webhook
-    // For self-hosted instances with self-signed certs, accept invalid certs
+    // Create a human-readable message from the JSON
+    let mut message = String::new();
+    
+    // Header with emojis
+    if is_sell {
+        message.push_str("📉🚨🐋 WHALE EXITING POSITION\n\n");
+    } else {
+        message.push_str("📈🚨🐋 WHALE ENTERING POSITION\n\n");
+    }
+    
+    // Basic info
+    message.push_str(&format!("📱 Platform: {}\n", alert.platform));
+    message.push_str(&format!("📊 Action: {}\n", 
+        if is_sell { "📉 SELL" } else { "📈 BUY" }));
+    
+    if let Some(title) = alert.market_title {
+        message.push_str(&format!("📋 Market: {}\n", title));
+    }
+    
+    if let Some(outcome) = alert.outcome {
+        message.push_str(&format!("🎯 Position: {}\n", outcome));
+    }
+    
+    message.push_str(&format!("💰 Amount: ${:.2}\n", alert.value));
+    message.push_str(&format!("🎲 Price: ${:.4} ({:.1}%)\n", 
+        alert.price, alert.price * 100.0));
+    
+    // Add the full JSON as a code block
+    message.push_str("\n```json\n");
+    message.push_str(&serde_json::to_string_pretty(&payload).unwrap_or_default());
+    message.push_str("\n```");
+
+    // Send to ntfy
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
         .timeout(std::time::Duration::from_secs(5))
         .build()
         .unwrap();
 
-    match client.post(webhook_url).json(&payload).send().await {
+    // Try sending as JSON with formatted message
+    match client.post(webhook_url)
+        .json(&json!({
+            "topic": "whale-alerts",
+            "message": message.trim(),
+            "title": if is_sell { "📉 WHALE SELLING" } else { "📈 WHALE BUYING" },
+            "tags": if is_sell { "whale,sell,alert" } else { "whale,buy,alert" },
+            "priority": if is_sell { 4 } else { 3 },
+        }))
+        .send()
+        .await
+    {
         Ok(response) => {
-            if !response.status().is_success() {
+            if response.status().is_success() {
+                return; // Success!
+            } else {
                 eprintln!(
-                    "{} Webhook failed with status: {}",
-                    "❌ [WEBHOOK ERROR]".red(),
+                    "{} ntfy JSON failed ({}), trying form data",
+                    "⚠️ [NTFY WARNING]".yellow(),
                     response.status()
                 );
             }
         }
         Err(e) => {
-            eprintln!("{} Failed to send webhook: {}", "❌ [WEBHOOK ERROR]".red(), e);
+            eprintln!("{} Failed to send ntfy JSON: {}", "⚠️ [NTFY WARNING]".yellow(), e);
+        }
+    }
+
+    // Fallback: send as form data with the formatted message
+    let form_data = [
+        ("topic", "whale-alerts"),
+        ("message", message.trim()),
+        ("title", if is_sell { "📉 WHALE SELLING" } else { "📈 WHALE BUYING" }),
+        ("tags", if is_sell { "whale,sell,alert" } else { "whale,buy,alert" }),
+        ("priority", if is_sell { "high" } else { "default" }),
+    ];
+
+    match client.post(webhook_url)
+        .form(&form_data)
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if !response.status().is_success() {
+                eprintln!(
+                    "{} ntfy failed with status: {}",
+                    "❌ [NTFY ERROR]".red(),
+                    response.status()
+                );
+            }
+        }
+        Err(e) => {
+            eprintln!("{} Failed to send ntfy: {}", "❌ [NTFY ERROR]".red(), e);
         }
     }
 }
