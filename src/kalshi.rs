@@ -126,7 +126,7 @@ fn get_team_emoji<'a>(team_code: &str, sport_hint: Option<&str>) -> &'a str {
     
     // Check sport-specific mappings first
     match sport.as_str() {
-        "nfl" | "football" => match code_upper.as_str() {
+        "nfl" | "american football" | "football" => match code_upper.as_str() {
             // NFL Teams
             "BUF" | "BUFFALO" => "🏈🦬",
             "MIA" | "MIAMI" => "🏈🐬",
@@ -266,7 +266,7 @@ fn get_team_emoji<'a>(team_code: &str, sport_hint: Option<&str>) -> &'a str {
             "WSH" | "NATIONALS" => "⚾🇺🇸",
             _ => "⚾",
         },
-        "soccer" | "football" => match code_upper.as_str() {
+        "soccer" => match code_upper.as_str() {
             // Soccer/Football Teams
             "MCI" | "MANCITY" => "⚽🔵",
             "LIV" | "LIVERPOOL" => "⚽🔴",
@@ -333,7 +333,7 @@ fn get_team_emoji<'a>(team_code: &str, sport_hint: Option<&str>) -> &'a str {
 // Helper function to get league/sport emoji
 fn get_sport_emoji(sport: &str) -> &'static str {
     match sport.to_lowercase().as_str() {
-        "nfl" | "football" => "🏈",
+        "nfl" | "american football" | "football" => "🏈",
         "nba" | "basketball" => "🏀",
         "nhl" | "hockey" => "🏒",
         "mlb" | "baseball" => "⚾",
