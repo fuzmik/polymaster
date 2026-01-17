@@ -121,22 +121,34 @@ async fn setup_config() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!();
-    println!("{}", "🔔 Webhook Configuration (optional):".bright_yellow());
-    println!("🌐 Send alerts to a webhook URL (works with n8n, Zapier, Make, etc.)");
-    println!("📝 Example: https://your-n8n-instance.com/webhook/whale-alerts");
-    println!("📱 For ntfy: http://your-ntfy-server:8080/whale-alerts");
+    println!("{}", "🔔 NTFY Webhook Configuration:".bright_yellow());
+    println!("🌐 Send alerts to a self-hosted ntfy server (recommended)");
+    println!("📦 Docker: docker run -p 8080:80 -it binwiederhier/ntfy");
+    println!();
+    println!("📝 URL Format Examples:");
+    println!("   📡 Without auth: http://your-server-ip:8080/whale-alerts");
+    println!("   🔐 With auth: http://user:pass@your-server:8080/whale-alerts");
+    println!("   🛡️ With HTTPS: https://ntfy.yourdomain.com/whale-alerts");
+    println!();
+    println!("💡 The topic will be 'whale-alerts' - subscribe to this on your devices");
     println!();
 
-    print!("🔗 Enter Webhook URL (or press Enter to skip): ");
+    print!("🔗 Enter ntfy Webhook URL: ");
     io::stdout().flush()?;
     let mut webhook_url = String::new();
     std::io::stdin().read_line(&mut webhook_url)?;
-    let webhook_url = webhook_url.trim().to_string();
+    let mut webhook_url = webhook_url.trim().to_string();
 
     if webhook_url.is_empty() {
-        println!("⏭️ Skipping webhook configuration.");
+        println!("⚠️ No webhook configured - alerts will only appear in terminal");
     } else {
+        // Validate URL format
+        if !webhook_url.starts_with("http://") && !webhook_url.starts_with("https://") {
+            println!("{} Adding http:// prefix", "⚠️".yellow());
+            webhook_url = format!("http://{}", webhook_url);
+        }
         println!("✅ Webhook configured: {}", webhook_url.bright_green());
+        println!("💡 Test with: wwatcher test-webhook");
     }
 
     println!();
@@ -164,10 +176,11 @@ async fn setup_config() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("💾 {} Configuration saved successfully.", "✅".bright_green());
     println!();
-    println!(
-        "🚀 Run {} to start watching for whale transactions.",
-        "wwatcher watch".bright_cyan()
-    );
+    println!("🚀 Quick Start:");
+    println!("   1. 📡 Start ntfy: docker run -p 8080:80 -it binwiederhier/ntfy");
+    println!("   2. 📱 Subscribe: Install ntfy app, add server, subscribe to 'whale-alerts'");
+    println!("   3. 🐋 Start watching: {}", "wwatcher watch".bright_cyan());
+    println!("   4. 🔧 Test: {}", "wwatcher test-webhook".bright_cyan());
 
     Ok(())
 }
@@ -198,7 +211,7 @@ async fn test_sound() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn test_webhook() -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}", "🌐 TESTING WEBHOOK".bright_cyan().bold());
+    println!("{}", "🌐 TESTING NTFY WEBHOOK".bright_cyan().bold());
     println!();
 
     let config = match config::load_config() {
@@ -223,71 +236,124 @@ async fn test_webhook() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    println!("📤 Sending test alert to: {}", webhook_url.bright_green());
+    println!("📤 Testing ntfy webhook at: {}", webhook_url.bright_green());
     println!();
-
-    // Create a test alert
-    let test_activity = types::WalletActivity {
-        transactions_last_hour: 2,
-        transactions_last_day: 5,
-        total_value_hour: 125000.0,
-        total_value_day: 380000.0,
-        is_repeat_actor: true,
-        is_heavy_actor: true,
-    };
-
-    // Test BUY alert
-    send_webhook_alert(
-        &webhook_url,
-        WebhookAlert {
-            platform: "Polymarket",
-            market_title: Some("Will Bitcoin reach $100k by end of 2026?"),
-            outcome: Some("Yes"),
-            side: "BUY",
-            value: 50000.0,
-            price: 0.65,
-            size: 76923.08,
-            timestamp: &chrono::Utc::now().to_rfc3339(),
-            wallet_id: Some("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"),
-            wallet_activity: Some(&test_activity),
-        },
-    )
-    .await;
-
-    println!("✅ Test BUY alert sent!");
     
-    // Test SELL alert
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-    
-    send_webhook_alert(
-        &webhook_url,
-        WebhookAlert {
-            platform: "Kalshi",
-            market_title: Some("Bitcoin price on Jan 16, 2026?"),
-            outcome: Some("Bitcoin (BTC) price < $96999.99 at expiry"),
-            side: "SELL",
-            value: 35000.0,
-            price: 0.54,
-            size: 64814.81,
-            timestamp: &chrono::Utc::now().to_rfc3339(),
-            wallet_id: None,
-            wallet_activity: None,
-        },
-    )
-    .await;
+    // Verify URL format
+    if !webhook_url.contains("://") {
+        println!("{} Warning: URL doesn't contain protocol (http:// or https://)", "⚠️".yellow());
+        println!("   Expected format: http://your-server:8080/whale-alerts");
+        println!("   Or with auth: http://user:pass@your-server:8080/whale-alerts");
+        println!();
+    }
 
-    println!("✅ Test SELL alert sent!");
+    println!("{}", "📝 Test Messages:".bright_cyan());
+    println!("1. Polymarket BUY alert");
+    println!("2. Kalshi SELL alert");
+    println!("3. Simple test ping");
     println!();
-    println!("{}", "✅ Test webhooks sent!".bright_green());
-    println!("🔍 Check your ntfy server to see if it received the alerts.");
+    
+    print!("Select test (1-3, default=1): ");
+    io::stdout().flush()?;
+    let mut choice = String::new();
+    std::io::stdin().read_line(&mut choice)?;
+    let choice = choice.trim();
+    
+    match choice {
+        "2" => {
+            // Test Kalshi SELL alert
+            println!("\n📤 Sending Kalshi SELL test alert...");
+            
+            let alert_data = WebhookAlert {
+                platform: "Kalshi",
+                market_title: Some("Will Bitcoin be above $96,999.99 on Jan 16, 2026?"),
+                outcome: Some("₿ 🔴📉 Bitcoin (BTC) price < $96999.99 at expiry"),
+                side: "SELL",
+                value: 35000.0,
+                price: 0.54,
+                size: 64814.81,
+                timestamp: &chrono::Utc::now().to_rfc3339(),
+                wallet_id: None,
+                wallet_activity: None,
+            };
+            
+            send_webhook_alert(&webhook_url, alert_data).await;
+        }
+        "3" => {
+            // Simple test ping
+            println!("\n📤 Sending simple test ping...");
+            
+            let client = reqwest::Client::new();
+            let simple_payload = serde_json::json!({
+                "topic": "whale-alerts",
+                "message": "## 🐋 Whale Watcher Test\n\nTest alert from Whale Watcher system.\n\n✅ Webhook configured correctly!",
+                "title": "✅ Whale Watcher Test",
+                "tags": ["test", "whale", "check"],
+                "priority": 1,
+                "markdown": true
+            });
+            
+            match client.post(&webhook_url)
+                .header("Content-Type", "application/json")
+                .json(&simple_payload)
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        println!("{} Test ping sent successfully!", "✅".bright_green());
+                        println!("Check your ntfy server for the test message.");
+                    } else {
+                        println!("{} Server returned: {}", "❌".red(), response.status());
+                    }
+                }
+                Err(e) => {
+                    println!("{} Failed to send test: {}", "❌".red(), e);
+                }
+            }
+        }
+        _ => {
+            // Test Polymarket BUY alert (default)
+            println!("\n📤 Sending Polymarket BUY test alert...");
+            
+            let test_activity = types::WalletActivity {
+                transactions_last_hour: 2,
+                transactions_last_day: 5,
+                total_value_hour: 125000.0,
+                total_value_day: 380000.0,
+                is_repeat_actor: true,
+                is_heavy_actor: true,
+            };
+
+            let alert_data = WebhookAlert {
+                platform: "Polymarket",
+                market_title: Some("Will Bitcoin reach $100,000 by end of 2026?"),
+                outcome: Some("Yes"),
+                side: "BUY",
+                value: 50000.0,
+                price: 0.65,
+                size: 76923.08,
+                timestamp: &chrono::Utc::now().to_rfc3339(),
+                wallet_id: Some("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"),
+                wallet_activity: Some(&test_activity),
+            };
+            
+            send_webhook_alert(&webhook_url, alert_data).await;
+        }
+    }
+
     println!();
-    println!("📱 The alerts should appear as formatted messages with emojis:");
-    println!("  📤 Test 1 - Polymarket BUY:");
-    println!("    - Title: 📈 WHALE BUYING");
-    println!("    - Tags: 🚨,🐋,📈");
-    println!("  📤 Test 2 - Kalshi SELL:");
-    println!("    - Title: 📉 WHALE SELLING");
-    println!("    - Tags: 🚨,🐋,📉");
+    println!("{}", "✅ Test complete!".bright_green());
+    println!();
+    println!("📱 Check your ntfy server/device for notifications.");
+    println!("🔧 If no notifications arrived, check:");
+    println!("   1. 📡 ntfy server is running and accessible");
+    println!("   2. 🔗 Webhook URL is correct: {}", webhook_url);
+    println!("   3. 🔓 Port 8080 is open (or your custom port)");
+    println!("   4. 🐳 Docker container is running (if using Docker)");
+    println!();
+    println!("💡 Example successful ntfy command:");
+    println!("   curl -d 'message=Test&topic=whale-alerts' http://your-server:8080/whale-alerts");
 
     Ok(())
 }
@@ -311,14 +377,28 @@ async fn show_status() -> Result<(), Box<dyn std::error::Error>> {
                 "  📈 Polymarket API: {}",
                 "✅ Public access (no key needed)".green()
             );
-            println!(
-                "  🔔 Webhook: {}",
-                if cfg.webhook_url.is_some() {
-                    format!("✅ Configured ({})", cfg.webhook_url.as_ref().unwrap()).green()
-                } else {
-                    "⚠️ Not configured".yellow()
+            
+            if let Some(ref url) = cfg.webhook_url {
+                println!("  🔔 ntfy Webhook: {}", format!("✅ {}", url).green());
+                println!("     📱 Topic: whale-alerts");
+                println!("     💡 Test: wwatcher test-webhook");
+            } else {
+                println!("  🔔 ntfy Webhook: {}", "❌ Not configured".red());
+                println!("     💡 Configure: wwatcher setup");
+            }
+            
+            // Check history
+            if let Ok(history_file) = get_history_file_path() {
+                if history_file.exists() {
+                    if let Ok(metadata) = std::fs::metadata(&history_file) {
+                        if let Ok(modified) = metadata.modified() {
+                            let duration = modified.elapsed().unwrap_or_default();
+                            let hours = duration.as_secs() / 3600;
+                            println!("  📜 Alert History: ✅ {} hours ago", hours);
+                        }
+                    }
                 }
-            );
+            }
         }
         Err(_) => {
             println!("❌ No configuration found. Run 'wwatcher setup' to configure.");
@@ -954,132 +1034,157 @@ async fn send_webhook_alert(webhook_url: &str, alert: WebhookAlert<'_>) {
     use serde_json::json;
 
     let is_sell = alert.side.to_uppercase() == "SELL";
-    let alert_type = if is_sell { "WHALE_EXIT" } else { "WHALE_ENTRY" };
-
-    // Build the JSON payload
-    let mut payload = json!({
-        "platform": alert.platform,
-        "alert_type": alert_type,
-        "action": alert.side.to_uppercase(),
-        "value": alert.value,
-        "price": alert.price,
-        "price_percent": (alert.price * 100.0).round() as i32,
-        "size": alert.size,
-        "timestamp": alert.timestamp,
-        "market_title": alert.market_title,
-        "outcome": alert.outcome,
-    });
-
-    // Add wallet information if available
-    if let Some(wallet) = alert.wallet_id {
-        payload["wallet_id"] = json!(wallet);
-    }
-
-    if let Some(activity) = alert.wallet_activity {
-        payload["wallet_activity"] = json!({
-            "transactions_last_hour": activity.transactions_last_hour,
-            "transactions_last_day": activity.transactions_last_day,
-            "total_value_hour": activity.total_value_hour,
-            "total_value_day": activity.total_value_day,
-            "is_repeat_actor": activity.is_repeat_actor,
-            "is_heavy_actor": activity.is_heavy_actor,
-        });
-    }
-
-    // Create a human-readable message from the JSON
+    
+    // Build rich markdown message
     let mut message = String::new();
     
-    // Header with emojis
+    // Header with appropriate emoji
     if is_sell {
-        message.push_str("📉🚨🐋 WHALE EXITING POSITION\n\n");
+        message.push_str("## 📉🐋 WHALE EXITING POSITION\n\n");
     } else {
-        message.push_str("📈🚨🐋 WHALE ENTERING POSITION\n\n");
+        message.push_str("## 📈🐋 WHALE ENTERING POSITION\n\n");
     }
     
-    // Basic info
-    message.push_str(&format!("📱 Platform: {}\n", alert.platform));
-    message.push_str(&format!("📊 Action: {}\n", 
-        if is_sell { "📉 SELL" } else { "📈 BUY" }));
+    // Platform and basic info
+    message.push_str(&format!("**Platform:** {}\n", alert.platform));
+    message.push_str(&format!("**Action:** {} {}\n", 
+        if is_sell { "📉 SELL" } else { "📈 BUY" },
+        alert.side.to_uppercase()
+    ));
     
+    // Market title
     if let Some(title) = alert.market_title {
-        message.push_str(&format!("📋 Market: {}\n", title));
+        message.push_str(&format!("**Market:** {}\n", title));
     }
     
+    // Outcome/position
     if let Some(outcome) = alert.outcome {
-        message.push_str(&format!("🎯 Position: {}\n", outcome));
+        message.push_str(&format!("**Position:** {}\n", outcome));
     }
     
-    message.push_str(&format!("💰 Amount: ${:.2}\n", alert.value));
-    message.push_str(&format!("🎲 Price: ${:.4} ({:.1}%)\n", 
+    // Transaction details
+    message.push_str("\n---\n\n");
+    message.push_str(&format!("**Amount:** `${:.2}`\n", alert.value));
+    message.push_str(&format!("**Price:** `${:.4}` ({:.1}%)\n", 
         alert.price, alert.price * 100.0));
+    message.push_str(&format!("**Size:** {:.0} contracts\n", alert.size));
+    message.push_str(&format!("**Time:** {}\n", alert.timestamp));
     
-    // Add the full JSON as a code block
-    message.push_str("\n```json\n");
-    message.push_str(&serde_json::to_string_pretty(&payload).unwrap_or_default());
-    message.push_str("\n```");
-
-    // Send to ntfy
+    // Wallet activity if available
+    if let Some(activity) = alert.wallet_activity {
+        message.push_str("\n---\n\n");
+        message.push_str("### 👛 Wallet Activity\n\n");
+        
+        message.push_str(&format!("- **Last Hour:** {} txns (${:.2})\n", 
+            activity.transactions_last_hour, activity.total_value_hour));
+        message.push_str(&format!("- **Last 24h:** {} txns (${:.2})\n", 
+            activity.transactions_last_day, activity.total_value_day));
+        
+        if activity.is_heavy_actor {
+            message.push_str("- **Status:** 🔥 HEAVY ACTOR (5+ transactions in 24h)\n");
+        } else if activity.is_repeat_actor {
+            message.push_str("- **Status:** ⚠️ REPEAT ACTOR\n");
+        }
+    }
+    
+    // Wallet ID if available
+    if let Some(wallet) = alert.wallet_id {
+        message.push_str(&format!("\n**Wallet:** `{}`\n", wallet));
+    }
+    
+    // Build JSON payload for ntfy
+    let payload = json!({
+        "topic": "whale-alerts",
+        "message": message.trim(),
+        "title": if is_sell { "📉 WHALE SELLING" } else { "📈 WHALE BUYING" },
+        "tags": if is_sell { ["whale", "sell", "alert", "📉"] } else { ["whale", "buy", "alert", "📈"] },
+        "priority": if is_sell { 4 } else { 3 }, // High for sells, default for buys
+        "markdown": true,
+        "icon": if is_sell { "https://emojicdn.elk.sh/📉" } else { "https://emojicdn.elk.sh/📈" },
+        "actions": [
+            {
+                "action": "view",
+                "label": "View Market",
+                "url": "https://polymarket.com" // Generic URL since we don't have specific market URLs
+            }
+        ]
+    });
+    
+    // Create HTTP client with appropriate settings
     let client = reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(10))
         .build()
-        .unwrap();
-
-    // Try sending as JSON with formatted message
+        .unwrap_or_else(|_| reqwest::Client::new());
+    
+    // Try to send as JSON (ntfy's preferred method)
     match client.post(webhook_url)
-        .json(&json!({
-            "topic": "whale-alerts",
-            "message": message.trim(),
-            "title": if is_sell { "📉 WHALE SELLING" } else { "📈 WHALE BUYING" },
-            "tags": if is_sell { "whale,sell,alert" } else { "whale,buy,alert" },
-            "priority": if is_sell { 4 } else { 3 },
-        }))
+        .header("Content-Type", "application/json")
+        .json(&payload)
         .send()
         .await
     {
         Ok(response) => {
             if response.status().is_success() {
-                return; // Success!
+                if cfg!(debug_assertions) {
+                    println!("{} Alert sent successfully to ntfy", "✅".bright_green());
+                }
             } else {
+                let status = response.status();
+                let body = response.text().await.unwrap_or_default();
                 eprintln!(
-                    "{} ntfy JSON failed ({}), trying form data",
-                    "⚠️ [NTFY WARNING]".yellow(),
-                    response.status()
+                    "{} ntfy returned {}: {}",
+                    "❌".red(),
+                    status,
+                    body
                 );
+                
+                // Fallback: try as form data (some ntfy instances might prefer this)
+                send_as_form_data(&client, webhook_url, &message, is_sell).await;
             }
         }
         Err(e) => {
-            eprintln!("{} Failed to send ntfy JSON: {}", "⚠️ [NTFY WARNING]".yellow(), e);
+            eprintln!("{} Failed to send ntfy alert: {}", "❌".red(), e);
+            
+            // Fallback: try as form data
+            let client = reqwest::Client::new();
+            send_as_form_data(&client, webhook_url, &message, is_sell).await;
         }
-    }
+    };
+}
 
-    // Fallback: send as form data with the formatted message
+// Helper function for form data fallback
+async fn send_as_form_data(client: &reqwest::Client, webhook_url: &str, message: &str, is_sell: bool) {
     let form_data = [
         ("topic", "whale-alerts"),
-        ("message", message.trim()),
+        ("message", message),
         ("title", if is_sell { "📉 WHALE SELLING" } else { "📈 WHALE BUYING" }),
-        ("tags", if is_sell { "whale,sell,alert" } else { "whale,buy,alert" }),
+        ("tags", if is_sell { "whale,sell,alert,📉" } else { "whale,buy,alert,📈" }),
         ("priority", if is_sell { "high" } else { "default" }),
+        ("markdown", "yes"),
     ];
-
+    
     match client.post(webhook_url)
         .form(&form_data)
         .send()
         .await
     {
         Ok(response) => {
-            if !response.status().is_success() {
+            if response.status().is_success() {
+                if cfg!(debug_assertions) {
+                    println!("{} Alert sent via form data fallback", "✅".bright_green());
+                }
+            } else {
                 eprintln!(
-                    "{} ntfy failed with status: {}",
-                    "❌ [NTFY ERROR]".red(),
+                    "{} Form data fallback also failed: {}",
+                    "❌".red(),
                     response.status()
                 );
             }
         }
         Err(e) => {
-            eprintln!("{} Failed to send ntfy: {}", "❌ [NTFY ERROR]".red(), e);
+            eprintln!("{} Form data fallback error: {}", "❌".red(), e);
         }
-    }
+    };
 }
 
 fn get_history_file_path() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
