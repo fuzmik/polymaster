@@ -727,7 +727,7 @@ fn print_kalshi_alert(
         println!("Question:   {}", title.bright_white().bold());
     }
 
-    // Parse and display what the bet means
+    // Parse and display what the bet means - USING UPDATED kalshi.rs
     let bet_details = kalshi::parse_ticker_details(&trade.ticker, &trade.taker_side);
     let bet_color = if is_sell {
         bet_details.bright_red().bold()
