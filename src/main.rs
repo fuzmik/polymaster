@@ -125,7 +125,8 @@ async fn setup_config() -> Result<(), Box<dyn std::error::Error>> {
     println!("Example: https://your-n8n-instance.com/webhook/whale-alerts");
     println!();
 
-    print!("Enter Webhook URL (or press Enter to skip): ");
+    // CHANGED: Update prompt to mention comma-separated URLs
+    print!("Enter Webhook URLs (comma-separated, or press Enter to skip): ");
     io::stdout().flush()?;
     let mut webhook_url = String::new();
     std::io::stdin().read_line(&mut webhook_url)?;
@@ -235,49 +236,61 @@ async fn test_webhook() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Test BUY alert
-    send_webhook_alert(
-        &webhook_url,
-        WebhookAlert {
-            platform: "Polymarket",
-            market_title: Some("Will Bitcoin reach $100k by end of 2026?"),
-            outcome: Some("Yes"),
-            side: "BUY",
-            value: 50000.0,
-            price: 0.65,
-            size: 76923.08,
-            timestamp: &chrono::Utc::now().to_rfc3339(),
-            wallet_id: Some("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"),
-            wallet_activity: Some(&test_activity),
-        },
-    )
-    .await;
+    let test_alert_1 = WebhookAlert {
+        platform: "Polymarket",
+        market_title: Some("Will Bitcoin reach $100k by end of 2026?"),
+        outcome: Some("Yes"),
+        side: "BUY",
+        value: 50000.0,
+        price: 0.65,
+        size: 76923.08,
+        timestamp: &chrono::Utc::now().to_rfc3339(),
+        wallet_id: Some("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"),
+        wallet_activity: Some(&test_activity),
+    };
 
-    println!("Test BUY alert sent!");
+    // CHANGED: Send to all comma-separated URLs
+    println!("Sending test BUY alert to all URLs...");
+    for url in webhook_url.split(',') {
+        let url = url.trim();
+        if !url.is_empty() {
+            println!("  → {}", url);
+            send_webhook_alert(url, test_alert_1.clone()).await;
+        }
+    }
+
+    println!("Test BUY alert sent to all URLs!");
     
     // Test SELL alert
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     
-    send_webhook_alert(
-        &webhook_url,
-        WebhookAlert {
-            platform: "Kalshi",
-            market_title: Some("Bitcoin price on Jan 16, 2026?"),
-            outcome: Some("Bitcoin (BTC) price < $96999.99 at expiry"),
-            side: "SELL",
-            value: 35000.0,
-            price: 0.54,
-            size: 64814.81,
-            timestamp: &chrono::Utc::now().to_rfc3339(),
-            wallet_id: None,
-            wallet_activity: None,
-        },
-    )
-    .await;
+    let test_alert_2 = WebhookAlert {
+        platform: "Kalshi",
+        market_title: Some("Bitcoin price on Jan 16, 2026?"),
+        outcome: Some("Bitcoin (BTC) price < $96999.99 at expiry"),
+        side: "SELL",
+        value: 35000.0,
+        price: 0.54,
+        size: 64814.81,
+        timestamp: &chrono::Utc::now().to_rfc3339(),
+        wallet_id: None,
+        wallet_activity: None,
+    };
 
-    println!("Test SELL alert sent!");
+    // CHANGED: Send second alert to all URLs
+    println!("Sending test SELL alert to all URLs...");
+    for url in webhook_url.split(',') {
+        let url = url.trim();
+        if !url.is_empty() {
+            println!("  → {}", url);
+            send_webhook_alert(url, test_alert_2.clone()).await;
+        }
+    }
+
+    println!("Test SELL alert sent to all URLs!");
     println!();
     println!("{}", "Test webhooks sent!".bright_green());
-    println!("Check your n8n workflow to see if it received the data.");
+    println!("Check your ntfy topics to see if they received the data.");
     println!();
     println!("The webhooks should receive JSON payloads with:");
     println!("  Test 1 - Polymarket BUY:");
@@ -314,7 +327,12 @@ async fn show_status() -> Result<(), Box<dyn std::error::Error>> {
             println!(
                 "  Webhook: {}",
                 if cfg.webhook_url.is_some() {
-                    format!("Configured ({})", cfg.webhook_url.as_ref().unwrap()).green()
+                    let urls = cfg.webhook_url.as_ref().unwrap();
+                    if urls.contains(',') {
+                        format!("Multiple URLs configured ({} destinations)", urls.split(',').count()).green()
+                    } else {
+                        format!("Configured ({})", urls).green()
+                    }
                 } else {
                     "Not configured".yellow()
                 }
@@ -351,7 +369,10 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
 
     if let Some(ref cfg) = config {
         if cfg.webhook_url.is_some() {
-            println!("Webhook:   {}", "Enabled".bright_green());
+            let url_count = cfg.webhook_url.as_ref()
+                .map(|urls| urls.split(',').filter(|s| !s.trim().is_empty()).count())
+                .unwrap_or(0);
+            println!("Webhooks:  {} destinations configured", url_count);
         }
     }
 
@@ -419,10 +440,15 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
                             
                             log_alert(&alert_data);
 
-                            // Send webhook notification
+                            // CHANGED: Send to all comma-separated URLs
                             if let Some(ref cfg) = config {
                                 if let Some(ref webhook_url) = cfg.webhook_url {
-                                    send_webhook_alert(webhook_url, alert_data).await;
+                                    for url in webhook_url.split(',') {
+                                        let url = url.trim();
+                                        if !url.is_empty() {
+                                            send_webhook_alert(url, alert_data.clone()).await;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -484,10 +510,15 @@ async fn watch_whales(threshold: u64, interval: u64) -> Result<(), Box<dyn std::
                             
                             log_alert(&alert_data);
 
-                            // Send webhook notification
+                            // CHANGED: Send to all comma-separated URLs
                             if let Some(ref cfg) = config {
                                 if let Some(ref webhook_url) = cfg.webhook_url {
-                                    send_webhook_alert(webhook_url, alert_data).await;
+                                    for url in webhook_url.split(',') {
+                                        let url = url.trim();
+                                        if !url.is_empty() {
+                                            send_webhook_alert(url, alert_data.clone()).await;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -727,7 +758,7 @@ fn print_kalshi_alert(
         println!("Question:   {}", title.bright_white().bold());
     }
 
-    // Parse and display what the bet means - USING UPDATED kalshi.rs
+    // Parse and display what the bet means
     let bet_details = kalshi::parse_ticker_details(&trade.ticker, &trade.taker_side);
     let bet_color = if is_sell {
         bet_details.bright_red().bold()
@@ -937,6 +968,7 @@ fn detect_anomalies(
     }
 }
 
+#[derive(Clone)]
 struct WebhookAlert<'a> {
     platform: &'a str,
     market_title: Option<&'a str>,
