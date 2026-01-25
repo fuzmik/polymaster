@@ -163,18 +163,39 @@ pub fn parse_ticker_details(ticker: &str, side: &str) -> String {
         let parts: Vec<&str> = ticker.split('-').collect();
         if let Some(threshold) = parts.last() {
             if threshold.chars().all(|c| c.is_numeric()) {
+                // Determine sport with expanded league support
                 let sport = if ticker.contains("NFL") {
                     "NFL"
                 } else if ticker.contains("NBA") {
                     "NBA"
-                } else if ticker.contains("NHL") {
-                    "NHL"
-                } else if ticker.contains("MLB") {
-                    "MLB"
-                } else if ticker.contains("NCAAF") || ticker.contains("CFB") {
-                    "College Football"
+                } else if ticker.contains("WNBA") {
+                    "WNBA"
                 } else if ticker.contains("NCAAB") || ticker.contains("CBB") {
                     "College Basketball"
+                } else if ticker.contains("EUROLEAGUE") || ticker.contains("EUROCUP") {
+                    "EuroLeague"
+                } else if ticker.contains("MLB") {
+                    "MLB"
+                } else if ticker.contains("NPB") {
+                    "Japanese Baseball"
+                } else if ticker.contains("KBO") {
+                    "Korean Baseball"
+                } else if ticker.contains("NHL") {
+                    "NHL"
+                } else if ticker.contains("TENNIS") {
+                    "Tennis"
+                } else if ticker.contains("GOLF") {
+                    "Golf"
+                } else if ticker.contains("UFC") || ticker.contains("MMA") {
+                    "MMA"
+                } else if ticker.contains("BOXING") {
+                    "Boxing"
+                } else if ticker.contains("OLYMPICS") {
+                    "Olympics"
+                } else if ticker.contains("SOCCER") || ticker.contains("FOOTBALL") {
+                    "Soccer"
+                } else if ticker.contains("NCAAF") || ticker.contains("CFB") {
+                    "College Football"
                 } else {
                     "Game"
                 };
@@ -205,19 +226,42 @@ pub fn parse_ticker_details(ticker: &str, side: &str) -> String {
         }
     }
 
+    // Expanded game detection for all sports leagues
     if ticker.contains("NHLGAME")
         || ticker.contains("NFLGAME")
+        // ALL BASKETBALL LEAGUES
         || ticker.contains("NBAGAME")
+        || ticker.contains("WNBAGAME")
+        || ticker.contains("NCAABGAME") 
+        || ticker.contains("CBBGAME")
+        || ticker.contains("EUROLEAGUEGAME")
+        || ticker.contains("EUROCUPGAME")
+        || ticker.contains("FIBAGAME")
+        || ticker.contains("CBAGAME")
+        || ticker.contains("KBLGAME")
+        || ticker.contains("NBLGAME")
+        || ticker.contains("LNGGAME")
+        // ALL BASEBALL LEAGUES
         || ticker.contains("MLBGAME")
+        || ticker.contains("NPBGAME")
+        || ticker.contains("KBOGAME")
+        || ticker.contains("BASEBALLGAME")
+        // OTHER SPORTS
         || ticker.contains("SOCCERGAME")
         || ticker.contains("FOOTBALLGAME")
+        // NEW SPORTS
+        || ticker.contains("TENNIS")
+        || ticker.contains("GOLFMATCH") || ticker.contains("GOLFTOUR")
+        || ticker.contains("UFC") || ticker.contains("MMA")
+        || ticker.contains("BOXING")
+        || ticker.contains("OLYMPICS")
     {
         // Sports game format
         let parts: Vec<&str> = ticker.split('-').collect();
         if parts.len() >= 3 {
             let outcome = parts.last().unwrap_or(&"");
 
-            // Extract team codes from middle part
+            // Extract team/player codes from middle part
             if let Some(teams_part) = parts.get(parts.len() - 2) {
                 // Format like "26JAN08ANACAR" - extract last 6 chars for teams
                 if teams_part.len() >= 6 {
@@ -225,18 +269,61 @@ pub fn parse_ticker_details(ticker: &str, side: &str) -> String {
                     let away = &team_codes[..3];
                     let home = &team_codes[3..];
 
+                    // Determine sport with expanded league support
                     let sport = if ticker.contains("NHL") {
                         "NHL"
                     } else if ticker.contains("NFL") {
                         "NFL"
-                    } else if ticker.contains("NBA") {
+                    } 
+                    // BASKETBALL LEAGUES - EXPANDED
+                    else if ticker.contains("NBA") {
                         "NBA"
-                    } else if ticker.contains("MLB") {
+                    } else if ticker.contains("NCAAB") || ticker.contains("CBB") {
+                        "College Basketball"
+                    } else if ticker.contains("WNBA") {
+                        "WNBA"
+                    } else if ticker.contains("EUROLEAGUE") || ticker.contains("EUROCUP") {
+                        "EuroLeague Basketball"
+                    } else if ticker.contains("FIBA") {
+                        "FIBA Basketball"
+                    } else if ticker.contains("CBA") && ticker.contains("BASKET") {
+                        "Chinese Basketball Association"
+                    } else if ticker.contains("KBL") {
+                        "Korean Basketball League"
+                    } else if ticker.contains("NBL") && (ticker.contains("AUS") || ticker.contains("BASKET")) {
+                        "Australian NBL"
+                    } else if ticker.contains("LNB") {
+                        "French Basketball (LNB)"
+                    } else if ticker.contains("BASKET") {
+                        "Basketball"
+                    }
+                    // BASEBALL LEAGUES - EXPANDED
+                    else if ticker.contains("MLB") {
                         "MLB"
+                    } else if ticker.contains("NPB") {
+                        "Japanese Baseball (NPB)"
+                    } else if ticker.contains("KBO") {
+                        "Korean Baseball (KBO)"
+                    } else if ticker.contains("BASEBALL") {
+                        "Baseball"
+                    }
+                    // NEW SPORTS
+                    else if ticker.contains("TENNIS") {
+                        "Tennis"
+                    } else if ticker.contains("GOLF") {
+                        "Golf"
+                    } else if ticker.contains("UFC") || ticker.contains("MMA") {
+                        "MMA"
+                    } else if ticker.contains("BOXING") {
+                        "Boxing"
+                    } else if ticker.contains("OLYMPICS") {
+                        "Olympics"
                     } else if ticker.contains("SOCCER") || ticker.contains("FOOTBALL") {
                         "Soccer"
+                    } else if ticker.contains("NCAAF") || ticker.contains("CFB") {
+                        "College Football"
                     } else {
-                        "Sports"
+                        "Game"
                     };
 
                     // Show what they're actually betting will happen
@@ -252,7 +339,7 @@ pub fn parse_ticker_details(ticker: &str, side: &str) -> String {
                             sport
                         );
                     } else {
-                        // Betting NO means betting the OTHER team wins
+                        // Betting NO means betting the OTHER team/player wins
                         let other_team = if outcome.to_uppercase() == away.to_uppercase() {
                             home.to_uppercase()
                         } else {
@@ -268,8 +355,132 @@ pub fn parse_ticker_details(ticker: &str, side: &str) -> String {
                 }
             }
         }
+    }
+
+    // LEAGUE-SPECIFIC DETECTION
+    // WNBA Detection
+    if ticker.contains("WNBA") {
+        let parts: Vec<&str> = ticker.split('-').collect();
+        if let Some(team) = parts.last() {
+            if betting_side == "YES" {
+                return format!("{} wins (WNBA)", team.to_uppercase());
+            } else {
+                return format!("{} loses (WNBA)", team.to_uppercase());
+            }
+        }
+    }
+
+    // EuroLeague Basketball Detection
+    if ticker.contains("EUROLEAGUE") || ticker.contains("EUROCUP") {
+        let parts: Vec<&str> = ticker.split('-').collect();
+        if let Some(team) = parts.last() {
+            if betting_side == "YES" {
+                return format!("{} wins (EuroLeague)", team.to_uppercase());
+            } else {
+                return format!("{} loses (EuroLeague)", team.to_uppercase());
+            }
+        }
+    }
+
+    // College Basketball (Women's) Detection
+    if ticker.contains("NCAAB") && (ticker.contains("W") || ticker.contains("WOMEN")) {
+        let parts: Vec<&str> = ticker.split('-').collect();
+        if let Some(team) = parts.last() {
+            if betting_side == "YES" {
+                return format!("{} wins (Women's College Basketball)", team.to_uppercase());
+            } else {
+                return format!("{} loses (Women's College Basketball)", team.to_uppercase());
+            }
+        }
+    }
+
+    // International Baseball Leagues
+    if ticker.contains("NPB") {
+        let parts: Vec<&str> = ticker.split('-').collect();
+        if let Some(team) = parts.last() {
+            if betting_side == "YES" {
+                return format!("{} wins (Japanese Baseball)", team.to_uppercase());
+            } else {
+                return format!("{} loses (Japanese Baseball)", team.to_uppercase());
+            }
+        }
+    }
+
+    if ticker.contains("KBO") {
+        let parts: Vec<&str> = ticker.split('-').collect();
+        if let Some(team) = parts.last() {
+            if betting_side == "YES" {
+                return format!("{} wins (Korean Baseball)", team.to_uppercase());
+            } else {
+                return format!("{} loses (Korean Baseball)", team.to_uppercase());
+            }
+        }
+    }
+
+    // NEW SPORTS SPECIAL HANDLING
+    
+    // Tennis specific parsing
+    if ticker.contains("TENNIS") {
+        let parts: Vec<&str> = ticker.split('-').collect();
+        if let Some(player) = parts.last() {
+            if betting_side == "YES" {
+                return format!("{} wins (Tennis)", player.to_uppercase());
+            } else {
+                return format!("{} loses (Tennis)", player.to_uppercase());
+            }
+        }
+    }
+
+    // Golf specific parsing  
+    if ticker.contains("GOLF") {
+        let parts: Vec<&str> = ticker.split('-').collect();
+        if let Some(player) = parts.last() {
+            if betting_side == "YES" {
+                return format!("{} wins tournament (Golf)", player.to_uppercase());
+            } else {
+                return format!("{} doesn't win (Golf)", player.to_uppercase());
+            }
+        }
+    }
+
+    // MMA/UFC specific parsing
+    if ticker.contains("UFC") || ticker.contains("MMA") {
+        let parts: Vec<&str> = ticker.split('-').collect();
+        if let Some(fighter) = parts.last() {
+            if betting_side == "YES" {
+                return format!("{} wins fight (MMA)", fighter.to_uppercase());
+            } else {
+                return format!("{} loses fight (MMA)", fighter.to_uppercase());
+            }
+        }
+    }
+
+    // Boxing specific parsing
+    if ticker.contains("BOXING") {
+        let parts: Vec<&str> = ticker.split('-').collect();
+        if let Some(fighter) = parts.last() {
+            if betting_side == "YES" {
+                return format!("{} wins fight (Boxing)", fighter.to_uppercase());
+            } else {
+                return format!("{} loses fight (Boxing)", fighter.to_uppercase());
+            }
+        }
+    }
+
+    // Olympics specific parsing
+    if ticker.contains("OLYMPICS") {
+        let parts: Vec<&str> = ticker.split('-').collect();
+        if let Some(athlete_or_country) = parts.last() {
+            if betting_side == "YES" {
+                return format!("{} wins gold (Olympics)", athlete_or_country.to_uppercase());
+            } else {
+                return format!("{} doesn't win gold (Olympics)", athlete_or_country.to_uppercase());
+            }
+        }
+    }
+
     // Check for point spreads
-    } else if ticker.contains("SPREAD") {
+    if ticker.contains("SPREAD") {
         let parts: Vec<&str> = ticker.split('-').collect();
         if let Some(last_part) = parts.last() {
             // Handle formats: "CAR3", "CAR-3", "CAR_N3" (negative), etc.
@@ -300,8 +511,10 @@ pub fn parse_ticker_details(ticker: &str, side: &str) -> String {
                 }
             }
         }
+    }
+
     // Check for player props (touchdowns, points, etc)
-    } else if ticker.contains("TD") || ticker.contains("SCORE") {
+    if ticker.contains("TD") || ticker.contains("SCORE") {
         let parts: Vec<&str> = ticker.split('-').collect();
         if let Some(threshold) = parts.last() {
             if threshold.chars().all(|c| c.is_numeric()) {
